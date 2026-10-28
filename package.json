@@ -1,0 +1,14 @@
+{
+  "name": "ha-mousetrap-manager",
+  "private": true,
+  "description": "Tests for the Mousetrap Manager card fork",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "acorn": "8.18.0",
+    "playwright": "1.63.0",
+    "yaml": "2.9.1"
+  }
+}

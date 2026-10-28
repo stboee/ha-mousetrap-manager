@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rodent Trap Card Demo</title>
+<style>
+  :root {
+    --primary-color: #03a9f4;
+    --primary-text-color: #212121;
+    --secondary-text-color: #727272;
+    --disabled-text-color: #9e9e9e;
+    --primary-background-color: #f4f5f7;
+    --card-background-color: #ffffff;
+    --divider-color: rgba(0, 0, 0, 0.12);
+    --success-color: #43a047;
+    --warning-color: #ffa600;
+    --error-color: #db4437;
+    --info-color: #039be5;
+  }
+  :root[data-theme="dark"] {
+    --primary-text-color: #e1e1e1;
+    --secondary-text-color: #9b9b9b;
+    --disabled-text-color: #6f6f6f;
+    --primary-background-color: #111111;
+    --card-background-color: #1c1c1c;
+    --divider-color: rgba(225, 225, 225, 0.12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Roboto, "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--primary-background-color);
+    color: var(--primary-text-color);
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--divider-color); background: var(--card-background-color);
+  }
+  header h1 { font-size: 18px; font-weight: 500; margin: 0; }
+  header p { margin: 2px 0 0; font-size: 13px; color: var(--secondary-text-color); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; }
+  .toolbar label { display: inline-flex; gap: 6px; align-items: center; color: var(--secondary-text-color); }
+  select, button {
+    font: inherit; font-size: 13px; color: var(--primary-text-color); background: var(--card-background-color);
+    border: 1px solid var(--divider-color); border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+  button:hover { border-color: var(--primary-color); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; padding: 20px; align-items: start; max-width: 1400px; margin: 0 auto; }
+  .stage { display: flex; justify-content: center; min-width: 0; }
+  .card-host { width: 100%; transition: max-width .3s ease; }
+  .panel { background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 12px; padding: 14px; position: sticky; top: 20px; }
+  .panel h2 { font-size: 14px; font-weight: 500; margin: 0 0 10px; }
+  .tip { font-size: 12px; color: var(--secondary-text-color); margin: -4px 0 10px; }
+  .trap-ctl { border-top: 1px solid var(--divider-color); padding: 10px 0; }
+  .trap-ctl:first-of-type { border-top: 0; padding-top: 0; }
+  .trap-ctl strong { font-size: 13px; font-weight: 500; display: block; margin-bottom: 6px; }
+  .trap-ctl .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .trap-ctl button { padding: 4px 8px; font-size: 12px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; transition: .25s;
+    background: #323232; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 12px; }
+    .panel { position: static; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Rodent Trap Card demo</h1>
+    <p>The real card running against simulated Home Assistant entities. Use the controls to change trap states.</p>
+  </div>
+  <div class="toolbar">
+    <label>Width
+      <select id="width">
+        <option value="250">Narrow (half a section)</option>
+        <option value="400">Phone</option>
+        <option value="560" selected>Section column</option>
+        <option value="1000">Full width</option>
+      </select>
+    </label>
+    <label>Max columns
+      <select id="columns">
+        <option value="">Automatic</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+      </select>
+    </label>
+    <label>Order
+      <select id="sort">
+        <option value="config">Card order</option>
+        <option value="status">Most urgent first</option>
+        <option value="name">Name</option>
+      </select>
+    </label>
+    <button id="theme" type="button">Dark theme</button>
+    <button id="anim" type="button">Animations: on</button>
+  </div>
+</header>
+
+<main>
+  <div class="stage"><div class="card-host" id="host"></div></div>
+  <aside class="panel">
+    <h2>Simulate events</h2>
+    <p class="tip">Readings with a corner mark have a hold action. Press and hold one, right-click it, or Tab to it and press Shift+Enter. Escape cancels the question.</p>
+    <div id="controls"></div>
+  </aside>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="../custom_components/mousetrap_manager/frontend/mousetrap-manager-card.js"></script>
+<script>
+  const minutesAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
+  const states = {};
+  function set(entity_id, state, attributes = {}, changedMinutesAgo = 0) {
+    const prev = states[entity_id];
+    const changed = !prev || prev.state !== String(state);
+    const last_changed = changed ? minutesAgo(changedMinutesAgo) : prev.last_changed;
+    states[entity_id] = {
+      entity_id, state: String(state),
+      attributes: { ...(prev ? prev.attributes : {}), ...attributes },
+      last_changed, last_updated: new Date().toISOString(),
+    };
+  }
+
+  // Entity and device registries, as the Home Assistant frontend exposes them.
+  const areas = { attic: { area_id: "attic", name: "Attic" } };
+  const devices = {};
+  const entities = {};
+  function goodnature(n, name, opts = {}) {
+    const id = `gn${n}`;
+    const p = `goodnature_trap_${n}`;
+    devices[id] = { id, name: `Goodnature Trap ${n}`, name_by_user: name, manufacturer: "Goodnature", model: "A24 Chirp", area_id: "attic" };
+    const add = (entity_id, state, attrs = {}, ago = 0) => {
+      set(entity_id, state, { friendly_name: `${name} ${attrs.label}`, ...attrs, label: undefined }, ago);
+      entities[entity_id] = { entity_id, device_id: id, platform: "zwave_js" };
+    };
+    add(`sensor.${p}_strikes`, opts.strikes ?? 7, { label: "Strikes", state_class: "total_increasing" }, 60 * 72);
+    add(`event.${p}_strike`, minutesAgo(60 * 72), { label: "Strike", event_type: "strike" }, 60 * 72);
+    add(`binary_sensor.${p}_kill_alert`, "off", { label: "Kill alert" }, 60 * 70);
+    add(`binary_sensor.${p}_trap_armed`, opts.armed ?? "on", { label: "Trap armed" }, 60 * 70);
+    add(`binary_sensor.${p}_re_arm_required`, "off", { label: "Re-arm required", device_class: "problem" }, 60 * 70);
+    add(`sensor.${p}_battery`, opts.battery ?? 86, { label: "Battery", unit_of_measurement: "%", device_class: "battery" });
+    add(`binary_sensor.${p}_battery_low`, "off", { label: "Battery low", device_class: "battery" });
+    add(`sensor.${p}_lure_remaining`, opts.lure ?? 178.9, { label: "Lure remaining", unit_of_measurement: "d", device_class: "duration" });
+    add(`number.${p}_lure_life`, 180, { label: "Lure life", unit_of_measurement: "d", min: 1, max: 365 });
+    add(`binary_sensor.${p}_lure_due`, opts.lureDue ?? "off", { label: "Lure due" });
+    add(`sensor.${p}_co2_shots_remaining`, opts.co2 ?? 22, { label: "CO2 shots remaining", unit_of_measurement: "shots" });
+    add(`binary_sensor.${p}_co2_low`, (opts.co2 ?? 22) <= 4 ? "on" : "off", { label: "CO2 low", device_class: "problem" });
+    add(`sensor.${p}_node_status`, "asleep", { label: "Node status" }, 60 * 11);
+    add(`sensor.${p}_last_seen`, minutesAgo(opts.seen ?? 60 * 11), { label: "Last seen", device_class: "timestamp" });
+    add(`sensor.${p}_signal_strength`, opts.rssi ?? -62, { label: "Signal strength", unit_of_measurement: "dBm", device_class: "signal_strength" });
+    add(`button.${p}_clear_kill_alert`, "unknown", { label: "Clear kill alert" });
+    add(`button.${p}_lure_replaced`, "unknown", { label: "Lure replaced" });
+    add(`button.${p}_co2_canister_replaced`, "unknown", { label: "CO2 canister replaced" });
+    add(`button.${p}_ping`, "unknown", { label: "Ping" });
+  }
+
+  // A Goodnature Mouse Trap, named as the ESPHome Goodnature gateway names it. It has no CO2 and no armed state.
+  function goodnatureMouse(n, name) {
+    const id = `gm${n}`;
+    const p = `goodnature_mouse_trap_${n}`;
+    devices[id] = { id, name: `Goodnature Mouse Trap ${n}`, name_by_user: name, manufacturer: "Goodnature", model: "Goodnature Mouse Trap", area_id: "attic" };
+    const add = (entity_id, state, attrs = {}, ago = 0) => {
+      set(entity_id, state, { friendly_name: `${name} ${attrs.label}`, ...attrs, label: undefined }, ago);
+      entities[entity_id] = { entity_id, device_id: id, platform: "esphome" };
+    };
+    add(`sensor.${p}_strikes`, 3, { label: "Strikes", state_class: "total_increasing" }, 60 * 30);
+    add(`event.${p}_strike`, minutesAgo(60 * 30), { label: "Strike", event_type: "strike" }, 60 * 30);
+    add(`binary_sensor.${p}_kill_alert`, "off", { label: "Kill Alert", device_class: "occupancy" }, 60 * 29);
+    add(`sensor.${p}_battery`, 72, { label: "Battery", unit_of_measurement: "%", device_class: "battery" });
+    add(`sensor.${p}_lure_remaining`, 64, { label: "Lure Remaining", unit_of_measurement: "d", device_class: "duration" });
+    add(`number.${p}_lure_life`, 90, { label: "Lure Life", unit_of_measurement: "d", min: 1, max: 365 });
+    add(`binary_sensor.${p}_online`, "on", { label: "Online", device_class: "connectivity" }, 60 * 5);
+    // It advertises all the time, so the gateway has always just heard from it.
+    add(`sensor.${p}_last_seen`, minutesAgo(0), { label: "Last Seen", device_class: "timestamp" });
+    add(`sensor.${p}_signal_strength`, -67, { label: "Signal Strength", unit_of_measurement: "dBm", device_class: "signal_strength" });
+    add(`button.${p}_clear_kill_alert`, "unknown", { label: "Clear Kill Alert" });
+    add(`button.${p}_lure_replaced`, "unknown", { label: "Lure Replaced" });
+  }
+
+  // Garage: snap trap, armed and healthy.
+  set("sensor.garage_trap_strikes", 7, { unit_of_measurement: "strikes" }, 60 * 30);
+  set("sensor.garage_trap_battery", 82, { unit_of_measurement: "%", device_class: "battery" });
+  set("binary_sensor.garage_trap_kill", "off", { device_class: "occupancy" }, 60 * 30);
+  set("input_number.garage_trap_bait", 3, { min: 0, max: 5, step: 1 });
+  set("binary_sensor.garage_trap_online", "on", { device_class: "connectivity" }, 60 * 48);
+  set("binary_sensor.garage_trap_rearm", "off", { device_class: "problem" }, 60 * 30);
+  // Basement: a catch 18 minutes ago.
+  set("sensor.basement_trap_strikes", 12, { unit_of_measurement: "strikes" }, 18);
+  set("sensor.basement_trap_battery", 64, { unit_of_measurement: "%", device_class: "battery" });
+  set("binary_sensor.basement_trap_kill", "on", { device_class: "occupancy" }, 18);
+  set("sensor.basement_trap_bait", 40, { unit_of_measurement: "%" });
+  set("binary_sensor.basement_trap_online", "on", { device_class: "connectivity" }, 60 * 72);
+  set("binary_sensor.basement_trap_rearm", "on", { device_class: "problem" }, 18);
+  // Mousetraps 1 and 2: Goodnature devices set up with `device:` only.
+  goodnature(1, "Mousetrap 1");
+  goodnature(2, "Mousetrap 2", { armed: "off", lure: 12.4, lureDue: "on", strikes: 2, seen: 95, co2: 3, rssi: -84 });
+  // Pantry: a Goodnature Mouse Trap set up with `device:` only.
+  goodnatureMouse(1, "Pantry");
+  // Loft: a NEO Coolcam Wi-Fi trap on Tasmota. Its alert isn't named like a kill alert, so it's set by hand; the device
+  // still gives the name and the art.
+  devices.neo1 = { id: "neo1", name: "Loft mousetrap", name_by_user: "Loft", manufacturer: "Tasmota", model: "NEO Coolcam Mouse Trap", area_id: "attic" };
+  for (const [entity_id, state, attrs] of [
+    ["binary_sensor.loft_mousetrap_alert", "off", { friendly_name: "Loft mousetrap Alert" }],
+    ["sensor.loft_mousetrap_battery", 75, { friendly_name: "Loft mousetrap Battery", unit_of_measurement: "%", device_class: "battery" }],
+  ]) {
+    set(entity_id, state, attrs, 60 * 20);
+    entities[entity_id] = { entity_id, device_id: "neo1", platform: "tasmota" };
+  }
+  // Kitchen: bait station, sprung, with a button on the tile.
+  set("sensor.kitchen_trap_status", "sprung", {}, 95);
+  set("binary_sensor.kitchen_trap_battery_low", "off", { device_class: "battery" });
+  set("input_number.kitchen_trap_bait", 100, { min: 0, max: 100, step: 5, unit_of_measurement: "%" });
+  set("script.kitchen_trap_reset", "off", { friendly_name: "Kitchen trap reset" });
+  // Shed: snap trap that stopped checking in three days ago.
+  set("sensor.shed_trap_strikes", 1, {}, 60 * 72);
+  set("sensor.shed_trap_battery", 71, { unit_of_measurement: "%", device_class: "battery" }, 60 * 72);
+  set("binary_sensor.shed_trap_kill", "off", {}, 60 * 72);
+  set("sensor.shed_trap_last_seen", minutesAgo(60 * 72), { device_class: "timestamp" });
+
+  const config = {
+    type: "custom:mousetrap-manager-card",
+    title: "Rodent Traps",
+    stale_after: "12h",
+    offline_after: "2d",
+    traps: [
+      { name: "Garage", location: "Behind the freezer",
+        strikes: "sensor.garage_trap_strikes", battery: "sensor.garage_trap_battery", kill: "binary_sensor.garage_trap_kill",
+        bait: "input_number.garage_trap_bait", online: "binary_sensor.garage_trap_online", rearm: "binary_sensor.garage_trap_rearm" },
+      { name: "Basement", location: "Next to the water heater",
+        strikes: "sensor.basement_trap_strikes", battery: "sensor.basement_trap_battery", kill: "binary_sensor.basement_trap_kill",
+        bait: "sensor.basement_trap_bait", online: "binary_sensor.basement_trap_online", rearm: "binary_sensor.basement_trap_rearm" },
+      { device: "gn1" },
+      { device: "gn2" },
+      { device: "gm1" },
+      { device: "neo1", kill: "binary_sensor.loft_mousetrap_alert", battery: "sensor.loft_mousetrap_battery" },
+      { name: "Kitchen", location: "Under the sink", style: "station",
+        rearm: "sensor.kitchen_trap_status", battery: "binary_sensor.kitchen_trap_battery_low", bait: "input_number.kitchen_trap_bait",
+        actions: [
+          { entity: "script.kitchen_trap_reset", name: "Mark re-armed", confirm: true },
+          // Home Assistant's own tap-action format, as pasted from another card.
+          { name: "Refill bait", action: "perform-action", perform_action: "input_number.set_value",
+            target: { entity_id: "input_number.kitchen_trap_bait" }, data: { value: 100 },
+            confirmation: { text: "Mark the bait station as refilled?" } },
+        ] },
+      { name: "Shed", location: "Workbench",
+        strikes: "sensor.shed_trap_strikes", battery: "sensor.shed_trap_battery", kill: "binary_sensor.shed_trap_kill",
+        last_seen: "sensor.shed_trap_last_seen" },
+    ],
+  };
+
+  const toast = document.getElementById("toast");
+  let toastTimer;
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+  }
+
+  const host = document.getElementById("host");
+  const card = document.createElement("mousetrap-manager-card");
+  host.appendChild(card);
+  let cardConfig = { ...config };
+  card.setConfig(cardConfig);
+
+  // Pretend to be Home Assistant: buttons change the simulated device.
+  async function callService(domain, service, data, target) {
+    const id = target && target.entity_id;
+    await new Promise((r) => setTimeout(r, 350));
+    const p = id && id.replace(/^[a-z_]+\./, "").replace(/_(clear_kill_alert|lure_replaced|co2_canister_replaced|ping)$/, "");
+    if (id && id.endsWith("_clear_kill_alert")) set(`binary_sensor.${p}_kill_alert`, "off");
+    else if (id && id.endsWith("_lure_replaced")) { set(`sensor.${p}_lure_remaining`, states[`number.${p}_lure_life`].state); set(`binary_sensor.${p}_lure_due`, "off"); }
+    else if (id && id.endsWith("_co2_canister_replaced")) setShots(p, 24);
+    else if (id && id.endsWith("_ping")) { set(`sensor.${p}_last_seen`, new Date().toISOString()); set(`sensor.${p}_node_status`, "awake"); setTimeout(() => { set(`sensor.${p}_node_status`, "asleep"); push(); }, 4000); }
+    else if (id === "script.kitchen_trap_reset") set("sensor.kitchen_trap_status", "armed");
+    else if (domain === "input_number" && service === "set_value") set(id, data.value);
+    showToast(`Called ${domain}.${service} on ${id}`);
+    push();
+  }
+  const push = () => { card.hass = { states: { ...states }, entities, devices, areas, language: "en", callService }; };
+  push();
+
+  const num = (id) => Number(states[id]?.state) || 0;
+  const gn = (n, key) => `goodnature_trap_${n}_${key}`;
+  // The gateway's CO2 Low alert comes on at 4 shots.
+  function setShots(p, n) {
+    set(`sensor.${p}_co2_shots_remaining`, Math.max(0, n));
+    set(`binary_sensor.${p}_co2_low`, n <= 4 ? "on" : "off");
+  }
+  const shotsLeft = (n) => num(`sensor.${gn(n, "co2_shots_remaining")}`);
+  const actions = {
+    Garage: {
+      "Catch!": () => { set("binary_sensor.garage_trap_kill", "on"); set("binary_sensor.garage_trap_rearm", "on"); set("sensor.garage_trap_strikes", num("sensor.garage_trap_strikes") + 1); set("input_number.garage_trap_bait", Math.max(0, num("input_number.garage_trap_bait") - 1)); },
+      "Empty & re-arm": () => { set("binary_sensor.garage_trap_kill", "off"); set("binary_sensor.garage_trap_rearm", "off"); },
+      "Battery −15": () => set("sensor.garage_trap_battery", Math.max(0, num("sensor.garage_trap_battery") - 15)),
+      "Bait −1": () => set("input_number.garage_trap_bait", Math.max(0, num("input_number.garage_trap_bait") - 1)),
+      "Refill": () => set("input_number.garage_trap_bait", 5),
+      "Toggle online": () => set("binary_sensor.garage_trap_online", states["binary_sensor.garage_trap_online"].state === "on" ? "off" : "on"),
+      // After a Home Assistant restart, sensors read "unknown" until the device reports: Status unknown, not Armed.
+      "Restart (unknown)": () => { set("binary_sensor.garage_trap_kill", "unknown"); set("binary_sensor.garage_trap_rearm", "unknown"); },
+    },
+    Basement: {
+      "Empty & re-arm": () => { set("binary_sensor.basement_trap_kill", "off"); set("binary_sensor.basement_trap_rearm", "off"); set("sensor.basement_trap_bait", 100); },
+      "Catch!": () => { set("binary_sensor.basement_trap_kill", "on"); set("binary_sensor.basement_trap_rearm", "on"); set("sensor.basement_trap_strikes", num("sensor.basement_trap_strikes") + 1); },
+    },
+    "Mousetrap 1": {
+      "Strike": () => { set(`binary_sensor.${gn(1, "kill_alert")}`, "on"); set(`sensor.${gn(1, "strikes")}`, num(`sensor.${gn(1, "strikes")}`) + 1); setShots("goodnature_trap_1", shotsLeft(1) - 1); set(`event.${gn(1, "strike")}`, new Date().toISOString()); set(`sensor.${gn(1, "last_seen")}`, new Date().toISOString()); },
+      // A Z-Wave trap reports a strike as separate updates: the kill alert, then the count, the event and last seen.
+      "Strike (Z-Wave style)": () => {
+        set(`binary_sensor.${gn(1, "kill_alert")}`, "on");
+        [
+          () => set(`sensor.${gn(1, "strikes")}`, num(`sensor.${gn(1, "strikes")}`) + 1),
+          () => set(`event.${gn(1, "strike")}`, new Date().toISOString()),
+          () => set(`sensor.${gn(1, "last_seen")}`, new Date().toISOString()),
+        ].forEach((step, n) => setTimeout(() => { step(); push(); }, 300 * (n + 1)));
+      },
+      "CO₂ −8 shots": () => setShots("goodnature_trap_1", shotsLeft(1) - 8),
+      "Weak signal": () => set(`sensor.${gn(1, "signal_strength")}`, num(`sensor.${gn(1, "signal_strength")}`) < -80 ? -62 : -91),
+      "Lure −60 d": () => set(`sensor.${gn(1, "lure_remaining")}`, Math.max(0, num(`sensor.${gn(1, "lure_remaining")}`) - 60).toFixed(1)),
+      "Lure due": () => set(`binary_sensor.${gn(1, "lure_due")}`, states[`binary_sensor.${gn(1, "lure_due")}`].state === "on" ? "off" : "on"),
+      "Battery low alert": () => set(`binary_sensor.${gn(1, "battery_low")}`, states[`binary_sensor.${gn(1, "battery_low")}`].state === "on" ? "off" : "on"),
+      "Quiet for 30 h": () => set(`sensor.${gn(1, "last_seen")}`, minutesAgo(60 * 30)),
+      "Node dead": () => set(`sensor.${gn(1, "node_status")}`, "dead"),
+    },
+    "Mousetrap 2": {
+      "Armed sensor on": () => set(`binary_sensor.${gn(2, "trap_armed")}`, "on"),
+      "Armed sensor off": () => set(`binary_sensor.${gn(2, "trap_armed")}`, "off"),
+    },
+    Pantry: {
+      "Strike": () => { set("binary_sensor.goodnature_mouse_trap_1_kill_alert", "on"); set("sensor.goodnature_mouse_trap_1_strikes", num("sensor.goodnature_mouse_trap_1_strikes") + 1); set("event.goodnature_mouse_trap_1_strike", new Date().toISOString()); set("sensor.goodnature_mouse_trap_1_last_seen", new Date().toISOString()); },
+      "Lure −30 d": () => set("sensor.goodnature_mouse_trap_1_lure_remaining", Math.max(0, num("sensor.goodnature_mouse_trap_1_lure_remaining") - 30)),
+      "Battery −20": () => set("sensor.goodnature_mouse_trap_1_battery", Math.max(0, num("sensor.goodnature_mouse_trap_1_battery") - 20)),
+    },
+    Loft: {
+      "Zap!": () => set("binary_sensor.loft_mousetrap_alert", "on"),
+      "Empty it": () => set("binary_sensor.loft_mousetrap_alert", "off"),
+      "Battery 25%": () => set("sensor.loft_mousetrap_battery", 25),
+    },
+    Kitchen: {
+      "Spring it": () => set("sensor.kitchen_trap_status", "sprung"),
+      "Bait −25": () => set("input_number.kitchen_trap_bait", Math.max(0, num("input_number.kitchen_trap_bait") - 25)),
+      "Battery low": () => set("binary_sensor.kitchen_trap_battery_low", states["binary_sensor.kitchen_trap_battery_low"].state === "on" ? "off" : "on"),
+    },
+    Shed: {
+      "Report in": () => set("sensor.shed_trap_last_seen", new Date().toISOString()),
+      "Quiet for 3 d": () => set("sensor.shed_trap_last_seen", minutesAgo(60 * 72)),
+    },
+  };
+
+  const controls = document.getElementById("controls");
+  for (const [trap, acts] of Object.entries(actions)) {
+    const box = document.createElement("div");
+    box.className = "trap-ctl";
+    box.dataset.trap = trap;
+    box.innerHTML = `<strong>${trap}</strong><div class="btns"></div>`;
+    for (const [label, fn] of Object.entries(acts)) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      b.addEventListener("click", () => { fn(); push(); });
+      box.querySelector(".btns").appendChild(b);
+    }
+    controls.appendChild(box);
+  }
+
+  const reconfigure = (patch) => { cardConfig = { ...cardConfig, ...patch }; card.setConfig(cardConfig); push(); };
+  const width = document.getElementById("width");
+  const applyWidth = () => { host.style.maxWidth = width.value + "px"; };
+  width.addEventListener("change", applyWidth);
+  applyWidth();
+  document.getElementById("sort").addEventListener("change", (e) => reconfigure({ sort: e.target.value }));
+  // `columns` is a maximum: at phone width, 2 or 3 still gives one column of readable tiles.
+  document.getElementById("columns").addEventListener("change", (e) => reconfigure({ columns: e.target.value ? Number(e.target.value) : undefined }));
+  const themeBtn = document.getElementById("theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const setTheme = (dark) => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    themeBtn.textContent = dark ? "Light theme" : "Dark theme";
+  };
+  setTheme(prefersDark);
+  themeBtn.addEventListener("click", () => setTheme(document.documentElement.dataset.theme !== "dark"));
+  const animBtn = document.getElementById("anim");
+  animBtn.addEventListener("click", () => {
+    const on = cardConfig.animations === false;
+    reconfigure({ animations: on });
+    animBtn.textContent = `Animations: ${on ? "on" : "off"}`;
+  });
+
+  window.addEventListener("hass-more-info", (e) => showToast(`Home Assistant would open the more-info dialog for ${e.detail.entityId}`));
+  window.addEventListener("hass-notification", (e) => showToast(e.detail.message));
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --check dist/mousetrap-manager-card.js
+      - run: npx --yes acorn@8 --ecma2018 --silent dist/mousetrap-manager-card.js
+      - name: ASCII guard
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          failed = False
+          for n, line in enumerate(Path('dist/mousetrap-manager-card.js').read_text().splitlines(), 1):
+              if any(ord(c) > 127 for c in line):
+                  print(f'::error file=dist/mousetrap-manager-card.js,line={n}::Non-ASCII character. Write it as a \\u escape.')
+                  failed = True
+          sys.exit(int(failed))
+          PY
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: pip install homeassistant==2026.10.4 paho-mqtt==2.1.0 pytest pytest-asyncio
+      - run: python -m pytest -q
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
