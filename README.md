@@ -18,6 +18,8 @@ Samme hendelse kan ikke bekreftes to ganger. Dette håndheves på serveren, ogs�
 
 ## Installasjon fra dette private repositoriet
 
+Den publiserte releasen tilbyr et ferdig installasjonsarkiv. Pakk det ut i en midlertidig mappe og kopier hele `mousetrap_manager` til `<HA-konfigurasjon>/custom_components/`. Full kildekode er også tilgjengelig i GitHubs kildearkiver.
+
 Last ned kildekoden fra den avtalte grenen/versjonen med din egen GitHub-tilgang. Kopier hele mappen:
 
 `custom_components/mousetrap_manager` → `<HA-konfigurasjon>/custom_components/mousetrap_manager`
@@ -123,3 +125,7 @@ Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Originalens test
 Kortgrunnlag: Rodent Trap Card 1.4, Katherine Dubé / `kedube`, commit [`28ff11fce917bb51a2d078b5c62bde40524b686a`](https://github.com/kedube/ha-rodent-traps/commit/28ff11fce917bb51a2d078b5c62bde40524b686a). Se [UPSTREAM.md](docs/UPSTREAM.md). Oppdateringer fra originalprosjektet vurderes som egne saker.
 
 GPL-3.0-or-later, med opprinnelige kildehenvisninger bevart. Se [LICENSE](LICENSE).
+
+## Utvikling og publisering fra main
+
+Videre endringer kan gjøres direkte i `main`. Tests-workflowen validerer endringene. For å publisere en ny versjon oppdateres integrasjonens og kortets versjon sammen med releasenotatene, og deretter `release-request.json` som en uttrykkelig publiseringsbestilling. Release-workflowen venter på beståtte tester for nøyaktig samme commit, bygger et installasjonsarkiv med SHA-256-kontrollsum, og oppretter tag og release. Den kan også kjøres manuelt fra Actions. Eksisterende versjonstagger overskrives ikke.

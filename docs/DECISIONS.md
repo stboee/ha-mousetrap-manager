@@ -18,4 +18,6 @@
 - Angring endrer ingen fysisk klargjørings-/kontrollstatus.
 - Arkivering av feller beholder fangsthistorikken og samlet total.
 
-Implementasjonsvalg: standard sperretid er 30 sekunder og kan endres til 0–600 sekunder. Én MQTT-sensor er knyttet til én registrert felle. Feil ved lagring skal ikke publisere en fangst som ikke er skrevet til lagringen. Ingen installasjon i brukerens HA og ingen automatisk merge/publisering som del av utviklingen.
+Implementasjonsvalg: standard sperretid er 30 sekunder og kan endres til 0–600 sekunder. Én MQTT-sensor er knyttet til én registrert felle. Feil ved lagring skal ikke publisere en fangst som ikke er skrevet til lagringen.
+
+Arbeidsmåte avklart etter første implementering: videre endringer kan gjøres direkte i `main`. PR #1 er godkjent for merge, og versjon 0.1.0 er godkjent for tag og release. Repositoriet forblir privat. Installasjon i brukerens HA skjer separat. Vanlige kodeendringer publiserer ikke automatisk en release; publisering utløses uttrykkelig gjennom `release-request.json` eller manuell kjøring av Release-workflowen.

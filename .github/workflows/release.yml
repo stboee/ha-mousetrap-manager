@@ -1,0 +1,92 @@
+name: Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - release-request.json
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version matching the integration manifest (empty uses release-request.json)
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: mousetrap-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select and validate version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          requested = os.environ.get('REQUESTED_VERSION') or json.loads(Path('release-request.json').read_text())['version']
+          manifest = json.loads(Path('custom_components/mousetrap_manager/manifest.json').read_text())['version']
+          if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', requested) or requested != manifest:
+              raise SystemExit('Release request must match the integration manifest version')
+          if not Path(f'release-notes/v{requested}.md').is_file():
+              raise SystemExit('Release notes are missing')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={requested}\n')
+          PY
+      - name: Build installation archive and checksum
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: python3 scripts/build_release.py "$RELEASE_VERSION"
+      - name: Wait for tests, create tag and publish release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        with:
+          script: |
+            const fs = require('fs');
+            const {owner, repo} = context.repo;
+            const version = process.env.RELEASE_VERSION;
+            const tag = `v${version}`;
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+            let passed = false;
+            for (let attempt = 0; attempt < 72; attempt++) {
+              const result = await github.rest.actions.listWorkflowRuns({owner, repo, workflow_id: 'ci.yml', head_sha: context.sha, event: 'push'});
+              const run = result.data.workflow_runs.find(run => run.head_sha === context.sha);
+              if (run && run.status === 'completed') {
+                if (run.conclusion !== 'success') throw new Error(`Tests failed: ${run.html_url}`);
+                core.info(`Tests passed: ${run.html_url}`);
+                passed = true;
+                break;
+              }
+              await sleep(10000);
+            }
+            if (!passed) throw new Error('Timed out waiting for tests on this exact commit');
+            try {
+              await github.rest.git.getRef({owner, repo, ref: `tags/${tag}`});
+              throw new Error(`Tag ${tag} already exists; existing versions are never overwritten`);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            const release = await github.rest.repos.createRelease({
+              owner, repo, tag_name: tag, target_commitish: context.sha,
+              name: `Mousetrap Manager ${tag}`,
+              body: fs.readFileSync(`release-notes/${tag}.md`, 'utf8'),
+              draft: true, prerelease: false
+            });
+            for (const name of fs.readdirSync('build/releases').sort()) {
+              await github.rest.repos.uploadReleaseAsset({owner, repo, release_id: release.data.id, name,
+                data: fs.readFileSync(`build/releases/${name}`)});
+            }
+            const published = await github.rest.repos.updateRelease({owner, repo, release_id: release.data.id, draft: false});
+            core.notice(`Published ${published.data.html_url}`);
+            await core.summary.addLink(`Mousetrap Manager ${tag}`, published.data.html_url).write();
