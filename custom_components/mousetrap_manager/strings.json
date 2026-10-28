@@ -1,0 +1,88 @@
+{
+  "title": "Mousetrap Manager",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Create shared trap register",
+        "description": "Register traps in Configure after setup. Mobile notifications are not used. Optional HA notifications are off by default."
+      }
+    },
+    "abort": {
+      "already_configured": "The trap register is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Administrer musefeller",
+        "menu_options": {
+          "add_trap": "Legg til felle",
+          "edit_trap": "Rediger eller arkiver felle",
+          "settings": "Innstillinger og varsler",
+          "undo": "Angre siste fangst"
+        }
+      },
+      "add_trap": {
+        "title": "Legg til vibrasjonsfelle",
+        "description": "Velg MQTT-enheten til sensoren og nøyaktig topic fra Zigbee2MQTT. Bare action: movement starter kontroll.",
+        "data": {
+          "name": "Fellenavn",
+          "device_id": "Vibrasjonssensor",
+          "topic": "MQTT-topic"
+        }
+      },
+      "edit_trap": {
+        "title": "Velg felle",
+        "data": {
+          "trap_id": "Felle"
+        }
+      },
+      "edit_details": {
+        "title": "Rediger felle",
+        "description": "Arkivering beholder fangsthistorikk og samlet total. Reaktivering starter overvåking på nytt.",
+        "data": {
+          "name": "Fellenavn",
+          "device_id": "Vibrasjonssensor",
+          "topic": "MQTT-topic",
+          "archived": "Arkivert (overvåking av)"
+        }
+      },
+      "settings": {
+        "title": "Innstillinger og varsler",
+        "description": "Valgfritt varsel i HAs varslingspanel, én gang per ventende kontroll. Ingen mobilvarsling. Med dette valget av vises kontrollbehov bare i kortet.",
+        "data": {
+          "notifications_enabled": "Aktiver varsler i HA",
+          "cooldown_seconds": "Sperretid etter kvittering"
+        }
+      },
+      "undo": {
+        "title": "Angre siste fangst",
+        "description": "Velg fellen som fikk feilregistrert fangst.",
+        "data": {
+          "trap_id": "Felle"
+        }
+      },
+      "undo_confirm": {
+        "title": "Bekreft angring",
+        "description": "Angre siste gyldige fangst for **{trap}**, registrert **{timestamp}**? Fellens teller og samlet total reduseres med 1. Kontrollstatus endres ikke.",
+        "data": {
+          "confirm": "Ja, angre denne fangstregistreringen"
+        }
+      }
+    },
+    "error": {
+      "empty_name": "Skriv et fellenavn.",
+      "invalid_topic": "Skriv et eksakt topic uten #, + eller innledende/avsluttende mellomrom.",
+      "unknown_device": "Enheten finnes ikke.",
+      "already_registered": "Sensoren eller MQTT-topic er allerede registrert. Rediger den eksisterende fellen.",
+      "confirmation_required": "Bekreft for å angre denne registreringen."
+    },
+    "abort": {
+      "no_traps": "Ingen feller er registrert.",
+      "no_captures": "Ingen gyldige fangster kan angres.",
+      "not_loaded": "Integrasjonen er ikke lastet. Kontroller oppsettet og prøv igjen.",
+      "capture_changed": "Siste fangst er endret. Åpne angring på nytt.",
+      "capture_undone": "Fangsten er annullert. Tellerne og hendelsesloggen er oppdatert."
+    }
+  }
+}

@@ -1,0 +1,24 @@
+confirm_catch:
+  name: Bekreft fangst
+  description: Bekreft én fangst etter at fellen er kontrollert og klargjort. Samme hendelse telles bare én gang.
+  fields:
+    trap_id:
+      required: true
+      selector:
+        text:
+    event_id:
+      required: true
+      selector:
+        text:
+false_alarm:
+  name: Kvitter falsk alarm
+  description: Avslutt kontroll etter klargjøring, uten å øke fangsttelleren.
+  fields:
+    trap_id:
+      required: true
+      selector:
+        text:
+    event_id:
+      required: true
+      selector:
+        text:
