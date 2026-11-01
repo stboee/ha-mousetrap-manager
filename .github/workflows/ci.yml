@@ -34,6 +34,7 @@ jobs:
       - run: pip install homeassistant==2026.10.4 paho-mqtt==2.1.0 pytest pytest-asyncio
       - run: python -m pytest -q
   frontend:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

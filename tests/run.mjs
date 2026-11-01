@@ -12,14 +12,14 @@ try {
   for (const file of suites) {
     const { default: run } = await import(new URL(file, dir));
     console.log(`\n# ${file}`);
-    let result;
+    let result, deadline;
     try {
-      result = await run(browser);
+      result = await Promise.race([run(browser), new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error("Suite exceeded 45 seconds")), 45000); })]);
     } catch (e) {
       console.log(`FAIL ${file} threw: ${e && e.stack ? e.stack : e}`);
       failed++;
       continue;
-    }
+    } finally { clearTimeout(deadline); }
     for (const line of result.lines) {
       console.log(line);
       if (line.startsWith("FAIL")) failed++;

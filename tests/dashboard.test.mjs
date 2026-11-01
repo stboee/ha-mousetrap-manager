@@ -82,7 +82,7 @@ export default async function run(browser) {
     const editor=customElements.get("mousetrap-manager-card").getConfigElement();editor.setConfig({});
     check("editor directs settings to integration",editor.shadowRoot.textContent.includes("Konfigurer"),true);
     check("no legacy trap-type selector remains",editor.shadowRoot.querySelector("ha-form"),null);
-    await Promise.all(qa("img.scene").map((img)=>img.decode()));
+    await Promise.all(qa("img.scene").map((img)=>{img.loading="eager";return img.decode();}));
     check("delivered illustrations load successfully",qa("img.scene").every((img)=>img.naturalWidth>0),true);
     card.remove();return out;
   });
