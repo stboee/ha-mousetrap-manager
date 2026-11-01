@@ -64,6 +64,35 @@ export default async function run(browser) {
     check("journal filter requests a specific trap", ws[ws.length - 1].trap_id, "trap-a");
     const width = q(".tile").getBoundingClientRect();
     check("managed phone tile fits viewport", width.right <= window.innerWidth, true);
+    const maintenance = { ...attrs, pending_event_id: null, show_bait_age: true, bait_age_days: 12,
+      bait_event_id: "bait-1", last_inspection: now, inspection_age_days: 8, inspection_interval_days: 7,
+      inspection_event_id: "inspection-1", inspection_due: true, last_sensor_contact: new Date(Date.now() - 7200000).toISOString() };
+    hass.states = { ...hass.states, "sensor.trap": state("monitoring", maintenance) }; card.hass = { ...hass };
+    check("scheduled inspection is visible without movement", chip(), "Tid for inspeksjon");
+    check("bait age uses the server's number of days", q(".m-bait_age .m-value").textContent, "12 dager");
+    check("inspection age is independent of bait age", q(".m-inspection_age .m-value").textContent, "8 dager");
+    check("sensor contact is visible", !!q(".m-sensor_contact [data-since]"), true);
+    check("scheduled inspection has contextual actions", [...card.shadowRoot.querySelectorAll(".act")].map((x) => x.textContent.trim()), ["Inspeksjon utført", "Åte byttet"]);
+    q(".act").click(); await new Promise((r) => setTimeout(r, 5));
+    check("inspection command pins the displayed inspection", calls[calls.length - 1].slice(0, 3), ["mousetrap_manager", "inspection_completed", { trap_id: "trap-a", event_id: "inspection-1" }]);
+    resolveCall(); await new Promise((r) => setTimeout(r, 5));
+    hass.states = { ...hass.states, "sensor.trap": state("pending", { ...maintenance, pending_event_id: "movement-2" }) }; card.hass = { ...hass };
+    check("movement takes precedence over inspection deadline", chip(), "Må kontrolleres");
+    check("bait replacement appears with acknowledgement buttons", [...card.shadowRoot.querySelectorAll(".act")].map((x) => x.textContent.trim()), ["Bekreft fangst", "Falsk alarm", "Åte byttet"]);
+    check("pending illustration has a question badge", !!q(".scene .badge-check"), true);
+    check("pending illustration never claims a caught mouse", q(".scene .mouse, .scene .victim"), null);
+    card.shadowRoot.querySelectorAll(".act")[2].click(); await new Promise((r) => setTimeout(r, 5));
+    check("bait command pins the displayed bait change", calls[calls.length - 1].slice(0, 3), ["mousetrap_manager", "bait_replaced", { trap_id: "trap-a", event_id: "bait-1" }]);
+    resolveCall(); await new Promise((r) => setTimeout(r, 5));
+    hass.states = { ...hass.states, "sensor.trap": state("monitoring", { ...maintenance, inspection_due: false, last_sensor_contact: null }) }; card.hass = { ...hass };
+    check("monitoring illustration contains no mouse", q(".scene .mouse, .scene .victim"), null);
+    check("monitoring illustration is still set", !!q(".scene .holddown"), true);
+    check("maintenance buttons are hidden during normal monitoring", card.shadowRoot.querySelectorAll(".act").length, 0);
+    check("HA state updates cannot invent sensor contact", q(".m-sensor_contact .m-value").textContent, "Ukjent");
+    hass.states = { ...hass.states, "sensor.trap": state("pending", { ...maintenance, pending_event_id: "movement-2", show_bait_age: false }) }; card.hass = { ...hass };
+    check("bait age visibility is configurable per trap", q(".m-bait_age"), null);
+    check("hidden bait age also hides its action", [...card.shadowRoot.querySelectorAll(".act")].map((x) => x.textContent.trim()), ["Bekreft fangst", "Falsk alarm"]);
+    check("maintenance readings fit a phone viewport", q(".tile").getBoundingClientRect().right <= window.innerWidth, true);
     hass.states = { ...hass.states, "sensor.trap": state("unavailable", attrs) }; card.hass = { ...hass };
     check("unavailable manager never reports monitoring active", chip(), "Status ukjent");
     card.remove();

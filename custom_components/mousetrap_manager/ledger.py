@@ -36,6 +36,25 @@ class Ledger:
         )
         if not isinstance(self.data.get("traps"), dict) or not isinstance(self.data.get("events"), list):
             raise LedgerError("Invalid saved trap register")
+        # Additive upgrade of the v1 store. Existing acknowledgements already meant
+        # that the trap was inspected; preserve their actual times, never invent one.
+        for trap_id, trap in self.data["traps"].items():
+            events = [e for e in self.data["events"] if e["trap_id"] == trap_id]
+            registered = next((e for e in events if e["type"] == "registered"), None)
+            inspected = next(
+                (
+                    e
+                    for e in reversed(events)
+                    if e["type"] in ("inspection_completed", "capture_confirmed", "false_alarm")
+                ),
+                None,
+            )
+            trap.setdefault("registered_at", registered["at"] if registered else None)
+            trap.setdefault("last_inspection", inspected["at"] if inspected else None)
+            trap.setdefault("inspection_event_id", inspected["id"] if inspected else None)
+            trap.setdefault("last_bait_replaced", None)
+            trap.setdefault("bait_event_id", None)
+            trap.setdefault("last_sensor_contact", None)
 
     def clone(self):
         return Ledger(self.data)
@@ -72,6 +91,12 @@ class Ledger:
                     "pending_event_id": None,
                     "cooldown_until": None,
                     "last_movement": None,
+                    "registered_at": at,
+                    "last_inspection": None,
+                    "inspection_event_id": None,
+                    "last_bait_replaced": None,
+                    "bait_event_id": None,
+                    "last_sensor_contact": None,
                 }
                 self._append(trap_id, "registered", at)
                 changed = True
@@ -123,7 +148,65 @@ class Ledger:
         self._append(trap_id, outcome, at, movement_id=event_id)
         trap["pending_event_id"] = None
         trap["cooldown_until"] = (instant(at) + timedelta(seconds=cooldown)).isoformat()
+        self._record_inspection(trap_id, at, outcome)
         return True
+
+    def sensor_contact(self, trap_id, at):
+        """Telemetry is not a catch, inspection, or journal event."""
+        trap = self._trap(trap_id)
+        previous = trap["last_sensor_contact"]
+        if trap["archived"] or (previous and instant(at) <= instant(previous)):
+            return False
+        instant(at)
+        trap["last_sensor_contact"] = at
+        return True
+
+    def _record_inspection(self, trap_id, at, source):
+        event = self._append(trap_id, "inspection_completed", at, source=source, bait_inspected=True)
+        trap = self._trap(trap_id)
+        trap["last_inspection"] = at
+        trap["inspection_event_id"] = event["id"]
+
+    def inspect(self, trap_id, previous_event_id, at, cooldown):
+        trap = self._trap(trap_id)
+        if trap["archived"]:
+            raise LedgerError("Arkiverte feller kan ikke inspiseres")
+        if previous_event_id != (trap["inspection_event_id"] or "initial"):
+            return False
+        if trap["pending_event_id"]:
+            raise LedgerError("Velg Bekreft fangst eller Falsk alarm for den ventende kontrollen")
+        self._record_inspection(trap_id, at, "manual")
+        trap["cooldown_until"] = (instant(at) + timedelta(seconds=cooldown)).isoformat()
+        return True
+
+    def replace_bait(self, trap_id, previous_event_id, at):
+        trap = self._trap(trap_id)
+        if trap["archived"]:
+            raise LedgerError("Arkiverte feller kan ikke få registrert åtebytte")
+        if previous_event_id != (trap["bait_event_id"] or "initial"):
+            return False
+        event = self._append(trap_id, "bait_replaced", at)
+        trap["last_bait_replaced"] = at
+        trap["bait_event_id"] = event["id"]
+        return True
+
+    def maintenance(self, trap_id, at, interval_days=0):
+        """Elapsed whole 24-hour days and the actual next deadline, in UTC."""
+        trap = self.summary(trap_id)
+        now = instant(at)
+
+        def age(value):
+            return max(0, int((now - instant(value)).total_seconds() // 86400)) if value else None
+
+        baseline = trap["last_inspection"] or trap["registered_at"]
+        due_at = instant(baseline) + timedelta(days=interval_days) if baseline and interval_days else None
+        return {
+            **trap,
+            "bait_age_days": age(trap["last_bait_replaced"]),
+            "inspection_age_days": age(trap["last_inspection"]),
+            "next_inspection": due_at.isoformat() if due_at else None,
+            "inspection_due": bool(interval_days and not trap["archived"] and (due_at is None or now >= due_at)),
+        }
 
     def catches(self, trap_id=None):
         voided = {e["capture_id"] for e in self.data["events"] if e["type"] == "capture_voided"}

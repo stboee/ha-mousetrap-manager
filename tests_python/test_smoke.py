@@ -49,6 +49,12 @@ async def test_native_setup_creates_entities_and_unloads(tmp_path):
             assert len([s for s in states if s.attributes.get("mousetrap_manager")]) == 1
             assert len([s for s in states if s.attributes.get("state_class") == "total"]) == 2
             assert any(s.entity_id.startswith("binary_sensor.") and s.state == "off" for s in states)
+            assert len([s for s in states if s.entity_id.startswith("button.")]) == 2
+            ages = [s for s in states if s.attributes.get("device_class") == "duration"]
+            assert len(ages) == 2
+            assert all(s.state == "unknown" and s.attributes["unit_of_measurement"] == "d" for s in ages)
+            timestamps = [s for s in states if s.attributes.get("device_class") == "timestamp"]
+            assert len(timestamps) == 4
             assert await hass.config_entries.async_unload(entry.entry_id)
     finally:
         await hass.async_stop()

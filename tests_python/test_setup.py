@@ -90,6 +90,10 @@ async def test_real_ha_services_use_pinned_episode_and_do_not_offer_undo(env):
         await hass.services.async_call("mousetrap_manager", "confirm_catch", data, blocking=True)
     assert CatchCount(manager).native_value == 1
     assert not hass.services.has_service("mousetrap_manager", "undo")
+    await hass.services.async_call(
+        "mousetrap_manager", "bait_replaced", {"trap_id": "a", "event_id": "initial"}, blocking=True
+    )
+    assert manager.summary("a")["last_bait_replaced"]
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call("mousetrap_manager", "false_alarm", data, blocking=True)
     assert (
@@ -97,3 +101,39 @@ async def test_real_ha_services_use_pinned_episode_and_do_not_offer_undo(env):
         == "/mousetrap_manager/mousetrap-manager-card.js"
     )
     manager.async_stop()
+
+
+@pytest.mark.parametrize("days", [-1, 1.5, "bad", 3651])
+async def test_invalid_inspection_intervals_are_rejected(env, days):
+    hass, entry, flow = env
+    with patch(
+        "custom_components.mousetrap_manager.config_flow.dr.async_get",
+        return_value=SimpleNamespace(async_get=lambda _: SimpleNamespace()),
+    ):
+        result = await flow.async_step_add_trap(
+            {"name": "Garasje", "device_id": "device-b", "topic": "zigbee2mqtt/b", "inspection_interval_days": days}
+        )
+    assert result["errors"]["inspection_interval_days"] == "invalid_interval"
+
+
+async def test_inspection_and_bait_options_are_per_trap(env):
+    hass, entry, flow = env
+    with patch(
+        "custom_components.mousetrap_manager.config_flow.dr.async_get",
+        return_value=SimpleNamespace(async_get=lambda _: SimpleNamespace()),
+    ):
+        result = await flow.async_step_add_trap(
+            {
+                "name": "Garasje",
+                "device_id": "device-b",
+                "topic": "zigbee2mqtt/b",
+                "inspection_interval_days": 14,
+                "show_bait_age": False,
+                "inspection_notifications_enabled": True,
+            }
+        )
+    config = result["data"]["traps"][1]
+    assert config["inspection_interval_days"] == 14
+    assert config["show_bait_age"] is False
+    assert config["inspection_notifications_enabled"] is True
+    assert not result["data"]["notifications_enabled"]

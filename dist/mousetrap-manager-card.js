@@ -6,7 +6,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "0.1.0";
+  const VERSION = "0.2.0";
   const CARD_TAG = "mousetrap-manager-card";
   const EDITOR_TAG = "mousetrap-manager-card-editor";
 
@@ -732,7 +732,7 @@
       missing,
       strikes: interpretCount(reads.strikes),
       lastStrike: readTime(reads.last_strike, "changed"),
-      lastSeen: readTime(reads.last_seen, "updated"),
+      lastSeen: t.managed ? t.managed.last_sensor_contact || null : readTime(reads.last_seen, "updated"),
       battery: interpretLevel(hass, reads.battery, toNum(trap.battery_low, cfg.battery_low), lowRead("battery")),
       bait: interpretLevel(hass, reads.bait, toNum(trap.bait_low, cfg.bait_low), lowRead("bait")),
       co2: interpretLevel(hass, reads.co2, toNum(trap.co2_low, cfg.co2_low), lowRead("co2"), CO2_SHOTS),
@@ -852,8 +852,17 @@
         m.status = "unknown"; m.label = "Status ukjent"; m.scene = "idle";
       } else {
         m.status = m.online === false ? "offline" : warnings.length ? "warn" : "ok";
-        m.label = m.status === "ok" ? "Overv\u00e5king aktiv" : m.status === "offline" ? "Offline" : warnings[0];
-        m.scene = m.online === false ? "offline" : "armed";
+        if (a.inspection_due && m.status === "ok") m.status = "check";
+        m.label = m.status === "ok" ? "Overv\u00e5king aktiv" : m.status === "offline" ? "Offline" : a.inspection_due ? "Tid for inspeksjon" : warnings[0];
+        m.scene = m.online === false ? "offline" : "monitoring";
+        if (a.inspection_due) m.actions.push(makeAction(hass, {
+          action: "mousetrap_manager.inspection_completed", name: "Inspeksjon utf\u00f8rt",
+          data: { trap_id: a.trap_id, event_id: a.inspection_event_id || "initial" }
+        }, false));
+      }
+      if (a.show_bait_age && (a.state === "pending" || (a.state === "monitoring" && a.inspection_due))) {
+        m.actions.push(makeAction(hass, { action: "mousetrap_manager.bait_replaced", name: "\u00c5te byttet",
+          data: { trap_id: a.trap_id, event_id: a.bait_event_id || "initial" } }, false));
       }
     }
     return m;
@@ -1192,7 +1201,7 @@
       sprung: `<g class="badge badge-rearm" transform="translate(4 32)"><circle r="12"/><g class="spin"><path transform="translate(-8 -8) scale(.667)" d="M12 4a8 8 0 0 1 7.4 5H22l-3.5 4.5L15 9h2.2A6 6 0 0 0 6 12H4a8 8 0 0 1 8-8Zm-8.5 6.5L7 15H4.8A6 6 0 0 0 18 12h2a8 8 0 0 1-15.4 3H2l1.5-4.5Z"/></g></g>`,
       check: `<g class="badge badge-check" transform="translate(4 32)"><circle r="12"/><text y="5" text-anchor="middle">?</text></g>`,
       offline: `<g class="badge badge-offline" transform="translate(196 32)"><circle r="12"/><g transform="translate(-8 -8) scale(.667)"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0" class="waves"/><circle cx="12" cy="19" r="1.6"/><path d="M4 3 20 21" class="slash"/></g></g>`,
-    }[m.scene] || "";
+    }[m.manager && m.scene === "sprung" ? "check" : m.scene] || "";
     const burst = snap && (m.scene === "kill" || m.scene === "sprung")
       ? `<g transform="translate(${art.burst[0]} ${art.burst[1]}) rotate(-10)"><g class="snap-text">
           <path class="burst" d="M-26 0-19-6-22-14-12-11-6-19 0-12 8-18 11-9 21-10 17-2 26 2 17 6 20 14 10 12 5 19 0 12-7 18-10 10-20 12-16 4Z"/>
@@ -1257,6 +1266,7 @@
   function renderMetrics(m, uid, flags, ui) {
     const out = [];
     for (const key of metricKeys(m)) {
+      if (m.manager && key === "last_seen") continue;
       const ents = metricEntities(m, key);
       const entity = ents[0];
       const hold = m.holds[key] || null;
@@ -1327,11 +1337,32 @@
         }
       }
     }
+    if (m.manager) {
+      const a = m.manager;
+      const days = (n) => n === null || n === undefined ? "Ukjent" : `${n} ${n === 1 ? "dag" : "dager"}`;
+      const addManaged = (key, icon, value, text, label, cls) => out.push(
+        metric(key, a.entity, icon, value, text, label, cls || "", null, false)
+      );
+      if (Object.prototype.hasOwnProperty.call(a, "last_sensor_contact")) {
+        const contact = a.last_sensor_contact;
+        const text = contact ? relTime(contact) : "Ukjent";
+        addManaged("sensor_contact", ICONS.seen, contact ? timeValue(contact) : "Ukjent", text, "Siste sensorkontakt", contact ? "" : "is-dim");
+      }
+      if (a.show_bait_age) {
+        const text = days(a.bait_age_days);
+        addManaged("bait_age", cheeseIcon({ level: 100 }, uid + "-age"), esc(text), text, "\u00c5tealder");
+      }
+      if (a.inspection_interval_days || a.last_inspection) {
+        const text = days(a.inspection_age_days);
+        addManaged("inspection_age", ICONS.clock, esc(text), text, "Sist inspisert", a.inspection_due ? "is-warn" : "");
+      }
+    }
     return out;
   }
 
   function renderBanner(m) {
     if (m.manager && m.manager.state === "pending") return `<div class="banner b-check">${ICONS.bell}<div><div class="b-title">M\u00e5 kontrolleres</div><div class="b-sub">Kontroller, t\u00f8m og klargj\u00f8r fellen f\u00f8r du kvitterer. Bevegelse er ikke bekreftet fangst.</div></div></div>`;
+    if (m.manager && m.manager.state === "monitoring" && m.manager.inspection_due && m.online !== false) return `<div class="banner b-check">${ICONS.question}<div><div class="b-title">Tid for inspeksjon</div><div class="b-sub">Kontroller fellen og \u00e5tet. Registrer \u00e5tebytte ved behov og kvitter n\u00e5r fellen er klar.</div></div></div>`;
     if (m.manager && m.manager.state === "monitoring" && Date.parse(m.manager.cooldown_until) > Date.now()) return `<div class="hint">Kort h\u00e5ndteringspause etter kvittering.</div>`;
     const since = (iso) => (iso ? ` ${DOT} <span class="since" data-since="${esc(iso)}">${esc(relTime(iso))}</span>` : "");
     const attr = (e) => (e ? ` data-entity="${esc(e)}" role="button" tabindex="0"` : "");
@@ -1528,6 +1559,8 @@
     }
     const managedPending = models.filter((m) => m.manager && m.manager.state === "pending").length;
     if (managedPending) chips.push(chip("s-check", `${managedPending} m\u00e5 kontrolleres`));
+    const inspectionDue = models.filter((m) => m.manager && m.manager.state !== "pending" && m.manager.inspection_due).length;
+    if (inspectionDue) chips.push(chip("s-check", `${inspectionDue} trenger inspeksjon`));
     if (globalTotal !== undefined && globalTotal !== null) chips.push(chip("total", `Samlet fangst: ${globalTotal}`));
     return chips.join("");
   }
@@ -2505,7 +2538,8 @@ ha-card { overflow: hidden; }
         const old = out.querySelector("button"); if (old) old.remove();
         const labels = { registered: "Felle registrert", movement: "Bevegelse registrert. M\u00e5 kontrolleres.",
           capture_confirmed: "Fangst bekreftet. Fellen er klargjort.", false_alarm: "Falsk alarm. Fellen er klargjort.",
-          capture_voided: "Siste fangst annullert.", archived: "Felle arkivert.", reactivated: "Felle aktivert igjen.", renamed: "Felle omd\u00f8pt." };
+          capture_voided: "Siste fangst annullert.", archived: "Felle arkivert.", reactivated: "Felle aktivert igjen.", renamed: "Felle omd\u00f8pt.",
+          bait_replaced: "\u00c5te byttet.", inspection_completed: "Fellen og \u00e5tet er inspisert. Fellen er klargjort." };
         result.events.forEach((e) => { const row = document.createElement("p"); row.textContent = new Date(e.at).toLocaleString() + " - " + e.name + ": " + (labels[e.type] || e.type); out.appendChild(row); });
         if (!out.children.length) out.textContent = "Ingen hendelser.";
         if (result.next_cursor) { const more = document.createElement("button"); more.textContent = "Vis eldre"; more.addEventListener("click", () => this._loadJournal(result.next_cursor)); out.appendChild(more); }

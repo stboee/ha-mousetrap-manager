@@ -36,6 +36,24 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     schema = vol.Schema({vol.Required("trap_id"): cv.string, vol.Required("event_id"): cv.string})
     for service in ("confirm_catch", "false_alarm"):
         hass.services.async_register(DOMAIN, service, acknowledge, schema=schema)
+
+    async def maintenance(call: ServiceCall):
+        for manager in hass.data[DOMAIN].values():
+            if call.data["trap_id"] in manager.ledger.data["traps"]:
+                try:
+                    await manager.async_maintenance(call.data["trap_id"], call.service, call.data.get("event_id"))
+                except LedgerError as err:
+                    raise HomeAssistantError(str(err)) from err
+                return
+        raise HomeAssistantError("Unknown trap")
+
+    for service in ("bait_replaced", "inspection_completed"):
+        hass.services.async_register(
+            DOMAIN,
+            service,
+            maintenance,
+            schema=vol.Schema({vol.Required("trap_id"): cv.string, vol.Optional("event_id"): cv.string}),
+        )
     websocket_api.async_register_command(hass, websocket_journal)
     return True
 

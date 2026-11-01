@@ -24,11 +24,14 @@
       },
       "add_trap": {
         "title": "Legg til vibrasjonsfelle",
-        "description": "Velg MQTT-enheten til sensoren og nøyaktig topic fra Zigbee2MQTT. Bare action: movement starter kontroll.",
+        "description": "Velg sensorens MQTT-enhet og eksakt Zigbee2MQTT-topic. Inspeksjonsfristen regnes fra siste inspeksjon, eller registrering av fellen før første inspeksjon. Varsler krever også hovedbryteren under Innstillinger og varsler. Arkivering beholder fangsthistorikken.",
         "data": {
           "name": "Fellenavn",
           "device_id": "Vibrasjonssensor",
-          "topic": "MQTT-topic"
+          "topic": "MQTT-topic",
+          "show_bait_age": "Vis åtealder i kortet",
+          "inspection_interval_days": "Inspeksjonsintervall (dager, 0 slår av)",
+          "inspection_notifications_enabled": "Varsle når inspeksjon er nødvendig"
         }
       },
       "edit_trap": {
@@ -39,20 +42,24 @@
       },
       "edit_details": {
         "title": "Rediger felle",
-        "description": "Arkivering beholder fangsthistorikk og samlet total. Reaktivering starter overvåking på nytt.",
+        "description": "Velg sensorens MQTT-enhet og eksakt Zigbee2MQTT-topic. Inspeksjonsfristen regnes fra siste inspeksjon, eller registrering av fellen før første inspeksjon. Varsler krever også hovedbryteren under Innstillinger og varsler. Arkivering beholder fangsthistorikken.",
         "data": {
           "name": "Fellenavn",
           "device_id": "Vibrasjonssensor",
           "topic": "MQTT-topic",
-          "archived": "Arkivert (overvåking av)"
+          "archived": "Arkivert (overvåking av)",
+          "show_bait_age": "Vis åtealder i kortet",
+          "inspection_interval_days": "Inspeksjonsintervall (dager, 0 slår av)",
+          "inspection_notifications_enabled": "Varsle når inspeksjon er nødvendig"
         }
       },
       "settings": {
         "title": "Innstillinger og varsler",
-        "description": "Valgfritt varsel i HAs varslingspanel, én gang per ventende kontroll. Ingen mobilvarsling. Med dette valget av vises kontrollbehov bare i kortet.",
+        "description": "Ingen mobilvarsling. Hovedbryteren slår alle HA-varsler helt av. Bevegelsesvarsler kan slås av separat. Inspeksjonsvarsler velges per felle.",
         "data": {
-          "notifications_enabled": "Aktiver varsler i HA",
-          "cooldown_seconds": "Sperretid etter kvittering"
+          "notifications_enabled": "Aktiver varsler i HA (hovedbryter)",
+          "cooldown_seconds": "Sperretid etter kvittering",
+          "movement_notifications_enabled": "Varsle ved bevegelse"
         }
       },
       "undo": {
@@ -75,7 +82,8 @@
       "invalid_topic": "Skriv et eksakt topic uten #, + eller innledende/avsluttende mellomrom.",
       "unknown_device": "Enheten finnes ikke.",
       "already_registered": "Sensoren eller MQTT-topic er allerede registrert. Rediger den eksisterende fellen.",
-      "confirmation_required": "Bekreft for å angre denne registreringen."
+      "confirmation_required": "Bekreft for å angre denne registreringen.",
+      "invalid_interval": "Skriv et helt antall dager mellom 0 og 3650."
     },
     "abort": {
       "no_traps": "Ingen feller er registrert.",

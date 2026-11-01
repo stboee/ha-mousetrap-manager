@@ -22,3 +22,27 @@ false_alarm:
       required: true
       selector:
         text:
+inspection_completed:
+  name: Inspeksjon utført
+  description: Registrer at fellen og åtet er inspisert og fellen klargjort. Ved ventende bevegelse brukes Bekreft fangst eller Falsk alarm.
+  fields:
+    trap_id:
+      required: true
+      selector:
+        text:
+    event_id:
+      description: Forrige inspeksjons-ID fra statusentiteten, eller initial før første inspeksjon. Kortet fyller inn automatisk.
+      selector:
+        text:
+bait_replaced:
+  name: Åte byttet
+  description: Registrer nytt åte. Dette kvitterer ikke bevegelse eller inspeksjon og endrer ikke fangsttelleren.
+  fields:
+    trap_id:
+      required: true
+      selector:
+        text:
+    event_id:
+      description: Forrige åtebytte-ID fra statusentiteten, eller initial før første bytte. Kortet fyller inn automatisk.
+      selector:
+        text:

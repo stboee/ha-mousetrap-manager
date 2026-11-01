@@ -1,6 +1,7 @@
 """Behavioral tests of the persistent state machine."""
 
 import json
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -141,11 +142,99 @@ def test_journal_is_paginated_and_filtered_without_omissions():
     confirm(ledger, "a")
     confirm(ledger, "b")
     first = ledger.journal(limit=3)
-    second = ledger.journal(before=first[-1]["id"], limit=3)
-    assert [e["id"] for e in first + second] == [e["id"] for e in reversed(ledger.data["events"])]
+    all_events = list(first)
+    while page := ledger.journal(before=all_events[-1]["id"], limit=3):
+        all_events.extend(page)
+    assert [e["id"] for e in all_events] == [e["id"] for e in reversed(ledger.data["events"])]
     assert all(e["trap_id"] == "a" for e in ledger.journal("a"))
 
 
 def test_invalid_persistence_is_not_silently_reset():
     with pytest.raises(LedgerError):
         Ledger({"traps": [], "events": []})
+
+
+def test_upgrade_preserves_old_inspection_time_without_inventing_bait_age():
+    ledger = register()
+    confirm(ledger)
+    data = deepcopy(ledger.data)
+    data["events"] = [e for e in data["events"] if e["type"] != "inspection_completed"]
+    for trap in data["traps"].values():
+        for key in (
+            "registered_at",
+            "last_inspection",
+            "inspection_event_id",
+            "last_bait_replaced",
+            "bait_event_id",
+            "last_sensor_contact",
+        ):
+            trap.pop(key)
+    restored = Ledger(data)
+    summary = restored.maintenance("a", at(86403), 1)
+    assert summary["last_inspection"] == at(2)
+    assert summary["inspection_due"] is True
+    assert summary["bait_age_days"] is None
+    assert summary["catch_count"] == 1
+    assert restored.summary("b")["last_inspection"] is None
+    assert len(restored.data["events"]) == len(data["events"])
+
+
+def test_inspection_covers_bait_without_resetting_its_age():
+    ledger = register()
+    ledger.replace_bait("a", "initial", at(1))
+    assert ledger.inspect("a", "initial", at(86401), 30)
+    summary = ledger.maintenance("a", at(86402), 2)
+    assert summary["bait_age_days"] == 1
+    assert summary["inspection_age_days"] == 0
+    assert summary["next_inspection"] == at(259201)
+    assert summary["inspection_due"] is False
+    assert ledger.maintenance("a", at(259201), 2)["inspection_due"] is True
+    assert ledger.maintenance("a", at(259201), 0)["inspection_due"] is False
+    assert not ledger.catches()
+    assert ledger.data["events"][-1]["bait_inspected"] is True
+    restored = Ledger(json.loads(json.dumps(ledger.data)))
+    assert restored.maintenance("a", at(259201), 2) == ledger.maintenance("a", at(259201), 2)
+
+
+@pytest.mark.parametrize("caught", [True, False])
+def test_acknowledgement_also_inspects_but_never_changes_bait_age(caught):
+    ledger = register()
+    ledger.replace_bait("a", "initial", at())
+    ledger.movement("a", at(86401))
+    pending = ledger.summary("a")["pending_event_id"]
+    ledger.acknowledge("a", pending, caught, at(86402), 30)
+    summary = ledger.maintenance("a", at(86402), 1)
+    assert summary["last_inspection"] == at(86402)
+    assert summary["bait_age_days"] == 1
+    assert not summary["inspection_due"]
+    assert not ledger.acknowledge("a", pending, caught, at(86403), 30)
+    assert len([e for e in ledger.data["events"] if e["type"] == "inspection_completed"]) == 1
+
+
+def test_bait_change_does_not_acknowledge_movement_or_inspection():
+    ledger = register()
+    ledger.movement("a", at(1))
+    pending = ledger.summary("a")["pending_event_id"]
+    assert ledger.replace_bait("a", "initial", at(2))
+    assert not ledger.replace_bait("a", "initial", at(3))
+    assert ledger.summary("a")["last_bait_replaced"] == at(2)
+    assert ledger.summary("a")["last_inspection"] is None
+    assert ledger.summary("a")["pending_event_id"] == pending
+    with pytest.raises(LedgerError):
+        ledger.inspect("a", "initial", at(3), 30)
+    ledger.acknowledge("a", pending, False, at(4), 30)
+    assert ledger.summary("a")["last_inspection"] == at(4)
+
+
+def test_inspection_retry_and_archiving_cannot_create_extra_events():
+    ledger = register()
+    assert ledger.inspect("a", "initial", at(1), 30)
+    assert not ledger.inspect("a", "initial", at(2), 30)
+    assert not ledger.movement("a", at(30))
+    token = ledger.summary("a")["inspection_event_id"]
+    ledger.sync_traps([{"id": "a", "name": "Loft", "archived": True}], at(3))
+    assert not ledger.maintenance("a", at(900000), 1)["inspection_due"]
+    with pytest.raises(LedgerError):
+        ledger.inspect("a", token, at(4), 30)
+    with pytest.raises(LedgerError):
+        ledger.replace_bait("a", "initial", at(4))

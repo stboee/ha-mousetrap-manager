@@ -43,6 +43,7 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
         return {
             "traps": [],
             "notifications_enabled": False,
+            "movement_notifications_enabled": self.config_entry.options.get("notifications_enabled", False),
             "cooldown_seconds": DEFAULT_COOLDOWN,
             **deepcopy(dict(self.config_entry.options)),
         }
@@ -90,6 +91,14 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             user_input = dict(user_input)
             user_input["name"] = user_input["name"].strip()
+            if "inspection_interval_days" in user_input:
+                try:
+                    days = user_input["inspection_interval_days"]
+                    if isinstance(days, bool) or int(days) != float(days) or not 0 <= int(days) <= 3650:
+                        raise ValueError
+                    user_input["inspection_interval_days"] = int(days)
+                except TypeError, ValueError, OverflowError:
+                    errors["inspection_interval_days"] = "invalid_interval"
             if not user_input["name"]:
                 errors["name"] = "empty_name"
             if not valid_topic(user_input["topic"]):
@@ -117,6 +126,17 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
                 "device_id", **({"default": existing["device_id"]} if existing.get("device_id") else {})
             ): selector.DeviceSelector(selector.DeviceSelectorConfig(integration="mqtt")),
             vol.Required("topic", default=existing.get("topic", "zigbee2mqtt/Vibrasjon")): str,
+            vol.Required("show_bait_age", default=existing.get("show_bait_age", True)): bool,
+            vol.Required(
+                "inspection_interval_days", default=existing.get("inspection_interval_days", 0)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0, max=3650, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="d"
+                )
+            ),
+            vol.Required(
+                "inspection_notifications_enabled", default=existing.get("inspection_notifications_enabled", False)
+            ): bool,
         }
         if editing:
             schema[vol.Required("archived", default=existing.get("archived", False))] = bool
@@ -132,6 +152,9 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required("notifications_enabled", default=options["notifications_enabled"]): bool,
+                    vol.Required(
+                        "movement_notifications_enabled", default=options["movement_notifications_enabled"]
+                    ): bool,
                     vol.Required("cooldown_seconds", default=options["cooldown_seconds"]): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=0, max=600, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="s"

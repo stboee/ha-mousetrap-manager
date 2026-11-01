@@ -1,13 +1,20 @@
 {
   "domain": "mousetrap_manager",
   "name": "Mousetrap Manager",
-  "codeowners": ["@stboee"],
+  "codeowners": [
+    "@stboee"
+  ],
   "config_flow": true,
-  "dependencies": ["mqtt", "http", "persistent_notification", "websocket_api"],
+  "dependencies": [
+    "mqtt",
+    "http",
+    "persistent_notification",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/stboee/ha-mousetrap-manager",
   "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/stboee/ha-mousetrap-manager/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

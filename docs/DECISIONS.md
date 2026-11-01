@@ -1,6 +1,6 @@
-# Avklarte beslutninger — 28. oktober 2026
+# Avklarte beslutninger — oppdatert 1. november 2026
 
-- Egen integrasjon og egen kortvariant i samme private repo.
+- Egen integrasjon og egen kortvariant i samme repo. Repositoriet var opprinnelig privat og er nå offentlig (bekreftet via GitHub 1. november).
 - Originalkortets funksjoner videreføres; senere originalendringer vurderes separat.
 - HA-målversjon: 2026.10.4.
 - Første sensor: Aqara DJT12LM/T1, Zigbee2MQTT, MQTT-topic `zigbee2mqtt/Vibrasjon`, hendelse `movement`.
@@ -20,4 +20,19 @@
 
 Implementasjonsvalg: standard sperretid er 30 sekunder og kan endres til 0–600 sekunder. Én MQTT-sensor er knyttet til én registrert felle. Feil ved lagring skal ikke publisere en fangst som ikke er skrevet til lagringen.
 
-Arbeidsmåte avklart etter første implementering: videre endringer kan gjøres direkte i `main`. PR #1 er godkjent for merge, og versjon 0.1.0 er godkjent for tag og release. Repositoriet forblir privat. Installasjon i brukerens HA skjer separat. Vanlige kodeendringer publiserer ikke automatisk en release; publisering utløses uttrykkelig gjennom `release-request.json` eller manuell kjøring av Release-workflowen.
+Arbeidsmåte avklart etter første implementering: videre endringer kan gjøres direkte i `main`, med tag og release ved nye versjoner. Installasjon i brukerens HA skjer separat. Vanlige kodeendringer publiserer ikke automatisk en release; publisering utløses uttrykkelig gjennom `release-request.json` eller manuell kjøring av Release-workflowen. HACS kan bruke det offentlige repositoriet som egendefinert integrasjon; HACS støtter ikke private repositorier.
+
+## Avklart for 0.2.0
+
+- Bruk `mdi:rodent`, med lisens og lokalt medfølgende brand-bilder. Magnific-illustrasjonen brukes ikke.
+- Aktiv overvåking: oppspent felle uten mus. Kontrollbehov: utløst felle med kontrollsymbol, uten bekreftet fangst i tegningen.
+- Åtealder og åtebyttetidspunkt lagres per felle. Visningen kan slås av per felle. Ukjent startdato skal ikke erstattes med installasjonsdatoen.
+- Åtebytteknappen ligger med kontrollhandlingene og finnes også på enhetssiden; den skal ikke stå permanent fremme på kortet.
+- Åtebytte kvitterer ikke kontroll eller inspeksjon. Brukeren klargjør fellen og velger etterpå Bekreft fangst eller Falsk alarm.
+- Inspeksjonsintervall velges per felle, med 0 som av. Før første inspeksjon regnes fristen fra registrering av fellen; senere fra sist inspeksjon.
+- Bekreft fangst og Falsk alarm registrerer også inspeksjon. Inspeksjon omfatter kontroll av åtet, men nullstiller ikke åtealder.
+- Periodisk inspeksjon får egen knapp når fristen er passert. Ved bevegelse brukes de vanlige kontrollknappene. Ingen inspeksjonshandling skal kunne omgå ventende kontroll.
+- Inspeksjon og åtebytte logges med tidspunkter; aldre og frister oppdateres på serveren hvert minutt uten åpent kort.
+- Varsler: hovedbryter for full deaktivering, eget valg for bevegelse, og inspeksjonsvarsler per felle. Nye inspeksjonsvarsler er av som standard. Ingen mobilvarsling.
+- Siste sensorkontakt må bygge på Zigbee2MQTT `last_seen`. MQTT-mottak, HA-oppdatering eller restart må ikke oppfattes som ny Zigbee-kontakt. Retained-rapport kan gjenopprette sitt faktiske kontakttidspunkt, men ikke utløse kontroll.
+- Eksisterende v1-lagring oppgraderes additivt med samme felle-ID-er, hendelser, fangster og ventende kontroll. Tidligere kvitteringer beholder sin faktiske inspeksjonstid.

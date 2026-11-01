@@ -24,11 +24,14 @@
       },
       "add_trap": {
         "title": "Legg til vibrasjonsfelle",
-        "description": "Velg MQTT-enheten til sensoren og nøyaktig topic fra Zigbee2MQTT. Bare action: movement starter kontroll.",
+        "description": "Choose the sensor MQTT device and its exact Zigbee2MQTT topic. Inspection starts from the last inspection, or trap registration before the first inspection. Notifications also require the HA notification master switch. Archiving retains catch history.",
         "data": {
           "name": "Fellenavn",
           "device_id": "Vibrasjonssensor",
-          "topic": "MQTT-topic"
+          "topic": "MQTT-topic",
+          "show_bait_age": "Show bait age in the card",
+          "inspection_interval_days": "Inspection interval (days, 0 disables)",
+          "inspection_notifications_enabled": "Notify when inspection is due"
         }
       },
       "edit_trap": {
@@ -39,20 +42,24 @@
       },
       "edit_details": {
         "title": "Rediger felle",
-        "description": "Arkivering beholder fangsthistorikk og samlet total. Reaktivering starter overvåking på nytt.",
+        "description": "Choose the sensor MQTT device and its exact Zigbee2MQTT topic. Inspection starts from the last inspection, or trap registration before the first inspection. Notifications also require the HA notification master switch. Archiving retains catch history.",
         "data": {
           "name": "Fellenavn",
           "device_id": "Vibrasjonssensor",
           "topic": "MQTT-topic",
-          "archived": "Arkivert (overvåking av)"
+          "archived": "Arkivert (overvåking av)",
+          "show_bait_age": "Show bait age in the card",
+          "inspection_interval_days": "Inspection interval (days, 0 disables)",
+          "inspection_notifications_enabled": "Notify when inspection is due"
         }
       },
       "settings": {
         "title": "Innstillinger og varsler",
-        "description": "Valgfritt varsel i HAs varslingspanel, én gang per ventende kontroll. Ingen mobilvarsling. Med dette valget av vises kontrollbehov bare i kortet.",
+        "description": "No mobile notifications. The master switch disables all HA notifications. Movement notifications are separate; inspection notifications are configured per trap.",
         "data": {
-          "notifications_enabled": "Aktiver varsler i HA",
-          "cooldown_seconds": "Sperretid etter kvittering"
+          "notifications_enabled": "Enable HA notifications (master switch)",
+          "cooldown_seconds": "Sperretid etter kvittering",
+          "movement_notifications_enabled": "Notify on movement"
         }
       },
       "undo": {
@@ -75,7 +82,8 @@
       "invalid_topic": "Skriv et eksakt topic uten #, + eller innledende/avsluttende mellomrom.",
       "unknown_device": "Enheten finnes ikke.",
       "already_registered": "Sensoren eller MQTT-topic er allerede registrert. Rediger den eksisterende fellen.",
-      "confirmation_required": "Bekreft for å angre denne registreringen."
+      "confirmation_required": "Bekreft for å angre denne registreringen.",
+      "invalid_interval": "Enter a whole number of days between 0 and 3650."
     },
     "abort": {
       "no_traps": "Ingen feller er registrert.",

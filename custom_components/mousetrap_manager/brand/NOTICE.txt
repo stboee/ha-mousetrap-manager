@@ -1,0 +1,9 @@
+Integration icon: mdi:rodent, from Material Design Icons @mdi/svg 7.4.47.
+Source: https://pictogrammers.com/library/mdi/icon/rodent/
+Original icon author: Google (as credited in @mdi/svg metadata).
+Icon collection: Pictogrammers, https://pictogrammers.com/
+License: Apache License 2.0; see LICENSE-APACHE-2.0.txt and PICTOGRAMMERS-LICENSE.txt.
+The original SVG is included as rodent.svg. The PNGs are resized, colored
+renderings for the light and dark Home Assistant integration tile.
+Reproduce with scripts/render_brand.py (development dependency: CairoSVG).
+This artwork retains its Apache 2.0 license; the integration code is GPL-3.0-or-later.

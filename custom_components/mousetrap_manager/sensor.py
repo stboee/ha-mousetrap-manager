@@ -1,6 +1,9 @@
 """Numeric counters and dashboard state, created automatically."""
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from datetime import datetime
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import UnitOfTime
 
 from .const import DOMAIN
 from .entity import TrapEntity
@@ -11,6 +14,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     entities = [CatchCount(manager)]
     for config in manager.traps:
         entities.extend([CatchCount(manager, config["id"]), TrapStatus(manager, config)])
+        entities.extend(MaintenanceSensor(manager, config["id"], key) for key in MAINTENANCE_SENSORS)
     async_add_entities(entities)
 
 
@@ -34,7 +38,7 @@ class CatchCount(TrapEntity, SensorEntity):
 
 
 class TrapStatus(TrapEntity, SensorEntity):
-    _attr_icon = "mdi:mouse-variant"
+    _attr_icon = "mdi:rodent"
     _attr_name = "Status"
 
     def __init__(self, manager, config):
@@ -44,12 +48,12 @@ class TrapStatus(TrapEntity, SensorEntity):
 
     @property
     def native_value(self):
-        trap = self.manager.ledger.summary(self.trap_id)
+        trap = self.manager.summary(self.trap_id)
         return "archived" if trap["archived"] else "pending" if trap["pending_event_id"] else "monitoring"
 
     @property
     def extra_state_attributes(self):
-        trap = self.manager.ledger.summary(self.trap_id)
+        trap = self.manager.summary(self.trap_id)
         return {
             "mousetrap_manager": True,
             "trap_id": self.trap_id,
@@ -61,4 +65,50 @@ class TrapStatus(TrapEntity, SensorEntity):
             "last_movement": trap["last_movement"],
             "cooldown_until": trap["cooldown_until"],
             "revision": self.manager.ledger.data["revision"],
+            **{
+                key: trap[key]
+                for key in (
+                    "show_bait_age",
+                    "last_bait_replaced",
+                    "bait_age_days",
+                    "bait_event_id",
+                    "last_inspection",
+                    "inspection_age_days",
+                    "inspection_event_id",
+                    "next_inspection",
+                    "inspection_due",
+                    "inspection_interval_days",
+                    "last_sensor_contact",
+                )
+            },
         }
+
+
+MAINTENANCE_SENSORS = {
+    "bait_age_days": ("Åtealder", "mdi:cheese", True),
+    "last_bait_replaced": ("Åte sist byttet", "mdi:cheese", False),
+    "last_inspection": ("Sist inspisert", "mdi:clipboard-check-outline", False),
+    "inspection_age_days": ("Tid siden inspeksjon", "mdi:clipboard-clock-outline", True),
+    "next_inspection": ("Neste inspeksjon", "mdi:calendar-clock", False),
+    "last_sensor_contact": ("Siste sensorkontakt", "mdi:access-point", False),
+}
+
+
+class MaintenanceSensor(TrapEntity, SensorEntity):
+    def __init__(self, manager, trap_id, key):
+        super().__init__(manager, trap_id)
+        self.key = key
+        self._attr_name, self._attr_icon, self.is_age = MAINTENANCE_SENSORS[key]
+        self._attr_unique_id = f"{DOMAIN}_{trap_id}_{key}"
+        if self.is_age:
+            self._attr_device_class = SensorDeviceClass.DURATION
+            self._attr_native_unit_of_measurement = UnitOfTime.DAYS
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 0
+        else:
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    @property
+    def native_value(self):
+        value = self.manager.summary(self.trap_id)[self.key]
+        return value if self.is_age or value is None else datetime.fromisoformat(value)

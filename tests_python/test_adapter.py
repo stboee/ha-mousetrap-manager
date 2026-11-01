@@ -1,6 +1,7 @@
 """Run the adapter against the actual Home Assistant 2026.10.4 classes."""
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -11,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from custom_components.mousetrap_manager.binary_sensor import PendingCheck
 from custom_components.mousetrap_manager.config_flow import MousetrapOptionsFlow, valid_topic
 from custom_components.mousetrap_manager.manager import TrapManager
-from custom_components.mousetrap_manager.sensor import CatchCount, TrapStatus
+from custom_components.mousetrap_manager.sensor import CatchCount, MaintenanceSensor, TrapStatus
 
 
 @pytest.fixture
@@ -87,7 +88,7 @@ async def test_notifications_default_off_and_optional_notice_has_stable_id(hass,
         pending = manager.ledger.summary("a")["pending_event_id"]
         with patch("custom_components.mousetrap_manager.manager.persistent_notification.async_dismiss") as dismiss:
             await manager.async_acknowledge("a", pending, False)
-            dismiss.assert_called_with(hass, "mousetrap_manager_a")
+            dismiss.assert_any_call(hass, "mousetrap_manager_a")
 
 
 async def test_mqtt_ignores_replays_other_actions_and_bad_payloads(hass, entry):
@@ -183,3 +184,99 @@ async def test_shutdown_waits_for_an_inflight_durable_transaction(hass, entry):
 )
 def test_subscriptions_require_an_exact_topic(topic, valid):
     assert valid_topic(topic) == valid
+
+
+async def test_sensor_contact_uses_actual_last_seen_not_delivery_or_state_change(hass, entry):
+    manager = TrapManager(hass, entry)
+    manager._store = SimpleNamespace(async_load=AsyncMock(return_value=None), async_save=AsyncMock())
+    with patch(
+        "custom_components.mousetrap_manager.manager.mqtt.async_subscribe",
+        new_callable=AsyncMock,
+        return_value=lambda: None,
+    ) as subscribe:
+        await manager.async_start()
+        callback = subscribe.call_args.args[2]
+    now = datetime(2026, 11, 1, 10, tzinfo=timezone.utc)
+    with patch("custom_components.mousetrap_manager.manager.dt_util.utcnow", return_value=now):
+        await callback(SimpleNamespace(payload='{"action":"movement","last_seen":"2026-11-01T09:00:00Z"}', retain=True))
+        assert not PendingCheck(manager, "a").is_on
+        assert manager.summary("a")["last_sensor_contact"] == "2026-11-01T09:00:00+00:00"
+        for payload in [
+            '{"battery":100}',
+            '{"last_seen":"invalid"}',
+            '{"last_seen":"2026-11-01T09:30:00"}',
+            '{"last_seen":"2026-11-02T10:00:00Z"}',
+            '{"last_seen":"2026-10-30T10:00:00Z"}',
+        ]:
+            await callback(SimpleNamespace(payload=payload, retain=False))
+        assert manager.summary("a")["last_sensor_contact"] == "2026-11-01T09:00:00+00:00"
+        stamp = int(now.timestamp() * 1000)
+        await callback(SimpleNamespace(payload=f'{{"last_seen":{stamp},"battery":100}}', retain=False))
+        assert MaintenanceSensor(manager, "a", "last_sensor_contact").native_value == now
+        assert not PendingCheck(manager, "a").is_on
+        assert not [e for e in manager.ledger.data["events"] if e["type"] != "registered"]
+    manager.async_stop()
+
+
+async def test_inspection_deadline_notifies_without_a_dashboard_and_only_once(hass, entry):
+    now = datetime(2026, 11, 1, 10, tzinfo=timezone.utc)
+    entry.options.update(notifications_enabled=True, movement_notifications_enabled=False)
+    entry.options["traps"][0].update(inspection_interval_days=1, inspection_notifications_enabled=True)
+    with (
+        patch("custom_components.mousetrap_manager.manager.dt_util.utcnow", return_value=now),
+        patch("custom_components.mousetrap_manager.manager.persistent_notification.async_create") as create,
+    ):
+        manager = await start(hass, entry)
+        assert not manager.summary("a")["inspection_due"]
+        create.assert_not_called()
+    due = now + timedelta(days=1)
+    with (
+        patch("custom_components.mousetrap_manager.manager.dt_util.utcnow", return_value=due),
+        patch("custom_components.mousetrap_manager.manager.persistent_notification.async_create") as create,
+    ):
+        manager._tick(due)
+        manager._tick(due)
+        assert manager.summary("a")["inspection_due"]
+        assert create.call_count == 1
+        assert create.call_args.kwargs["notification_id"] == "mousetrap_manager_inspection_a"
+        # A movement does not cause a second or different notification when movement notices are off.
+        await manager._change(lambda ledger: ledger.movement("a", due.isoformat()))
+        assert create.call_count == 1
+        pending = manager.ledger.summary("a")["pending_event_id"]
+        await manager.async_acknowledge("a", pending, False)
+        assert not manager.summary("a")["inspection_due"]
+    with (
+        patch("custom_components.mousetrap_manager.manager.dt_util.utcnow", return_value=due + timedelta(days=1)),
+        patch("custom_components.mousetrap_manager.manager.persistent_notification.async_create") as create,
+    ):
+        entry.options["notifications_enabled"] = False
+        manager._tick(due + timedelta(days=1))
+        assert manager.summary("a")["inspection_due"]
+        create.assert_not_called()
+    manager.async_stop()
+
+
+async def test_pinned_maintenance_commands_are_idempotent_and_survive_storage(hass, entry):
+    manager = await start(hass, entry)
+    results = await asyncio.gather(*[manager.async_maintenance("a", "bait_replaced", "initial") for _ in range(10)])
+    assert sum(results) == 1
+    assert len([e for e in manager.ledger.data["events"] if e["type"] == "bait_replaced"]) == 1
+    results = await asyncio.gather(
+        *[manager.async_maintenance("a", "inspection_completed", "initial") for _ in range(10)]
+    )
+    assert sum(results) == 1
+    persisted = manager._store.async_save.call_args.args[0]
+    restored = TrapManager(hass, entry)
+    restored._store = SimpleNamespace(async_load=AsyncMock(return_value=persisted), async_save=AsyncMock())
+    with patch(
+        "custom_components.mousetrap_manager.manager.mqtt.async_subscribe",
+        new_callable=AsyncMock,
+        return_value=lambda: None,
+    ):
+        await restored.async_start()
+    assert restored.summary("a")["last_bait_replaced"] == manager.summary("a")["last_bait_replaced"]
+    assert restored.summary("a")["last_inspection"] == manager.summary("a")["last_inspection"]
+    assert not await restored.async_maintenance("a", "bait_replaced", "initial")
+    assert CatchCount(restored).native_value == 0
+    manager.async_stop()
+    restored.async_stop()
