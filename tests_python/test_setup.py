@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.mousetrap_manager import async_setup
 from custom_components.mousetrap_manager.config_flow import MousetrapOptionsFlow
@@ -16,6 +19,10 @@ from custom_components.mousetrap_manager.sensor import CatchCount
 @pytest.fixture
 async def env(tmp_path):
     hass = HomeAssistant(str(tmp_path))
+    dr.async_setup(hass)
+    await dr.async_load(hass)
+    await er.async_load(hass)
+    await ar.async_load(hass)
     entry = SimpleNamespace(
         entry_id="test",
         options={"traps": [{"id": "a", "name": "Loft", "device_id": "device-a", "topic": "zigbee2mqtt/a"}]},

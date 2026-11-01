@@ -16,23 +16,33 @@
       "init": {
         "title": "Administrer musefeller",
         "menu_options": {
-          "add_trap": "Legg til felle",
+          "add_trap": "Legg til snap-felle",
           "edit_trap": "Rediger eller arkiver felle",
           "settings": "Innstillinger og varsler",
           "undo": "Angre siste fangst",
-          "victor_recovery": "Victor – automatisk gjenoppretting"
+          "victor_recovery": "Victor – automatisk gjenoppretting",
+          "add_victor": "Legg til Victor M1",
+          "display": "Felles kortoppsett og terskler"
         }
       },
       "add_trap": {
         "title": "Legg til vibrasjonsfelle",
-        "description": "Velg sensorens MQTT-enhet og eksakt Zigbee2MQTT-topic. Inspeksjonsfristen regnes fra siste inspeksjon, eller registrering av fellen før første inspeksjon. Varsler krever også hovedbryteren under Innstillinger og varsler. Arkivering beholder fangsthistorikken.",
+        "description": "Snap-felle: velg MQTT-enhet og eksakt topic. Victor: velg eksisterende Victor-enhet; kilder oppdages automatisk, valgfrie entitetsfelt overstyrer oppdagelsen. Inspeksjonsfrist regnes fra registrering før første inspeksjon. Visnings- og terskelfeltene brukes bare når Overstyr er aktivert; ellers følges felles oppsett. Varsling krever hovedbryteren. Arkivering beholder historikken.",
         "data": {
           "name": "Fellenavn",
           "device_id": "Vibrasjonssensor",
           "topic": "MQTT-topic",
           "show_bait_age": "Vis åtealder i kortet",
           "inspection_interval_days": "Inspeksjonsintervall (dager, 0 slår av)",
-          "inspection_notifications_enabled": "Varsle når inspeksjon er nødvendig"
+          "inspection_notifications_enabled": "Varsle når inspeksjon er nødvendig",
+          "location": "Plassering (tomt bruker kildeenhetens HA-område)",
+          "override_display": "Overstyr felles visning og terskler for denne fellen",
+          "show_scene": "Vis illustrasjon",
+          "animations": "Tillat animasjoner",
+          "metrics": "Verdier som vises",
+          "battery_low": "Lavt batteri ved eller under (%)",
+          "stale_after_hours": "Gammel sensorkontakt etter (timer, 0 slår av)",
+          "offline_after_hours": "Frist uten sensorkontakt (timer, 0 slår av)"
         }
       },
       "edit_trap": {
@@ -43,7 +53,7 @@
       },
       "edit_details": {
         "title": "Rediger felle",
-        "description": "Velg sensorens MQTT-enhet og eksakt Zigbee2MQTT-topic. Inspeksjonsfristen regnes fra siste inspeksjon, eller registrering av fellen før første inspeksjon. Varsler krever også hovedbryteren under Innstillinger og varsler. Arkivering beholder fangsthistorikken.",
+        "description": "Snap-felle: velg MQTT-enhet og eksakt topic. Victor: velg eksisterende Victor-enhet; kilder oppdages automatisk, valgfrie entitetsfelt overstyrer oppdagelsen. Inspeksjonsfrist regnes fra registrering før første inspeksjon. Visnings- og terskelfeltene brukes bare når Overstyr er aktivert; ellers følges felles oppsett. Varsling krever hovedbryteren. Arkivering beholder historikken.",
         "data": {
           "name": "Fellenavn",
           "device_id": "Vibrasjonssensor",
@@ -51,7 +61,22 @@
           "archived": "Arkivert (overvåking av)",
           "show_bait_age": "Vis åtealder i kortet",
           "inspection_interval_days": "Inspeksjonsintervall (dager, 0 slår av)",
-          "inspection_notifications_enabled": "Varsle når inspeksjon er nødvendig"
+          "inspection_notifications_enabled": "Varsle når inspeksjon er nødvendig",
+          "location": "Plassering (tomt bruker kildeenhetens HA-område)",
+          "override_display": "Overstyr felles visning og terskler for denne fellen",
+          "show_scene": "Vis illustrasjon",
+          "animations": "Tillat animasjoner",
+          "metrics": "Verdier som vises",
+          "battery_low": "Lavt batteri ved eller under (%)",
+          "stale_after_hours": "Gammel sensorkontakt etter (timer, 0 slår av)",
+          "offline_after_hours": "Frist uten sensorkontakt (timer, 0 slår av)",
+          "source_capture": "Valgfri kilde: Capture",
+          "source_present": "Valgfri kilde: Kills present",
+          "source_catches": "Valgfri kilde: Total kills",
+          "source_last_catch": "Valgfri kilde: Last kill date",
+          "source_contact": "Valgfri kilde: Last report date",
+          "source_battery": "Valgfri kilde: Battery level",
+          "source_signal": "Valgfri kilde: Wireless network RSSI"
         }
       },
       "settings": {
@@ -60,7 +85,8 @@
         "data": {
           "notifications_enabled": "Aktiver varsler i HA (hovedbryter)",
           "cooldown_seconds": "Sperretid etter kvittering",
-          "movement_notifications_enabled": "Varsle ved bevegelse"
+          "movement_notifications_enabled": "Varsle ved bevegelse",
+          "health_notifications_enabled": "Varsle om gammel sensorkontakt, utilgjengelig kilde eller lavt batteri"
         }
       },
       "undo": {
@@ -72,7 +98,7 @@
       },
       "undo_confirm": {
         "title": "Bekreft angring",
-        "description": "Angre siste gyldige fangst for **{trap}**, registrert **{timestamp}**? Fellens teller og samlet total reduseres med 1. Kontrollstatus endres ikke.",
+        "description": "Angre siste gyldige fangst for **{trap}**, registrert **{timestamp}**? Fellens teller og Snap-telleren reduseres med 1. Kontrollstatus endres ikke.",
         "data": {
           "confirm": "Ja, angre denne fangstregistreringen"
         }
@@ -88,6 +114,48 @@
           "victor_reload_max_attempts": "Maksimalt antall forsøk per feilperiode (1–10)",
           "reset_attempts": "Nullstill lagret antall forsøk"
         }
+      },
+      "display": {
+        "title": "Felles kortoppsett og terskler",
+        "description": "Gjelder alle kort på PC og mobil. Kortet viser automatisk aktive feller. Antall kolonner er en øvre grense; smale skjermer viser færre. Terskler gjelder sensorkontakt, ikke når HA sist oppdaterte en entitet. Varsling må aktiveres separat.",
+        "data": {
+          "title": "Korttittel",
+          "sort": "Sortering",
+          "columns": "Maksimalt antall kolonner",
+          "show_summary": "Vis oversikt og Snap-fangster",
+          "show_scene": "Vis illustrasjon",
+          "animations": "Tillat animasjoner",
+          "metrics": "Verdier som vises",
+          "battery_low": "Lavt batteri ved eller under (%)",
+          "stale_after_hours": "Gammel sensorkontakt etter (timer, 0 slår av)",
+          "offline_after_hours": "Frist uten sensorkontakt (timer, 0 slår av)"
+        }
+      },
+      "add_victor": {
+        "title": "Legg til Victor Smart-Kill M1",
+        "description": "Velg en eksisterende Victor-enhet. Fangst, teller, batteri og rapportering leses fra Victor-integrasjonen. Ingen ny innlogging eller fangststatistikk opprettes. Åte og inspeksjon lagres i vårt register. La kildefeltene stå tomme for automatisk oppdagelse. Slå på Overstyr bare om denne fellen skal avvike fra felles kortoppsett.",
+        "data": {
+          "name": "Fellenavn",
+          "device_id": "Eksisterende Victor-enhet",
+          "show_bait_age": "Vis åtealder i kortet",
+          "inspection_interval_days": "Inspeksjonsintervall (dager, 0 slår av)",
+          "inspection_notifications_enabled": "Varsle når inspeksjon er nødvendig",
+          "location": "Plassering (tomt bruker kildeenhetens HA-område)",
+          "override_display": "Overstyr felles visning og terskler for denne fellen",
+          "show_scene": "Vis illustrasjon",
+          "animations": "Tillat animasjoner",
+          "metrics": "Verdier som vises",
+          "battery_low": "Lavt batteri ved eller under (%)",
+          "stale_after_hours": "Gammel sensorkontakt etter (timer, 0 slår av)",
+          "offline_after_hours": "Frist uten sensorkontakt (timer, 0 slår av)",
+          "source_capture": "Valgfri kilde: Capture",
+          "source_present": "Valgfri kilde: Kills present",
+          "source_catches": "Valgfri kilde: Total kills",
+          "source_last_catch": "Valgfri kilde: Last kill date",
+          "source_contact": "Valgfri kilde: Last report date",
+          "source_battery": "Valgfri kilde: Battery level",
+          "source_signal": "Valgfri kilde: Wireless network RSSI"
+        }
       }
     },
     "error": {
@@ -98,7 +166,8 @@
       "confirmation_required": "Bekreft for å angre denne registreringen.",
       "invalid_interval": "Skriv et helt antall dager mellom 0 og 3650.",
       "invalid_victor_entry": "Velg en eksisterende Victor Smart-Kill-integrasjon.",
-      "invalid_recovery_number": "Skriv et helt tall innenfor intervallet som er angitt for feltet."
+      "invalid_recovery_number": "Skriv et helt tall innenfor intervallet som er angitt for feltet.",
+      "invalid_thresholds": "Fristen uten sensorkontakt må være minst like lang som terskelen for gammel sensorkontakt, eller 0 for å slå av."
     },
     "abort": {
       "no_traps": "Ingen feller er registrert.",

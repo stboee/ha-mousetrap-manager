@@ -18,7 +18,10 @@ from .manager import TrapManager
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL, str(Path(__file__).parent / "frontend" / "mousetrap-manager-card.js"), False)]
+        [
+            StaticPathConfig(CARD_URL, str(Path(__file__).parent / "frontend" / "mousetrap-manager-card.js"), False),
+            StaticPathConfig("/mousetrap_manager/images", str(Path(__file__).parent / "frontend" / "images"), False),
+        ]
     )
 
     async def acknowledge(call: ServiceCall):

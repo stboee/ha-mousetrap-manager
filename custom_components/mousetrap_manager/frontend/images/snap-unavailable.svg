@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 205 100"><title>Snap-felle</title><style>.shadow{fill:#000;opacity:.12}.wood{fill:#c69762}.wood-edge{fill:#9f7148}.wood-hi{stroke:#f6d8b5}.grain{stroke:#ae774a;stroke-width:.9;fill:none}.plate{fill:#dce2e4;stroke:#697d86}.cheese{transform-origin:123px 62.8px}.wedge{fill:#f4c846;stroke:#b87c20;stroke-linejoin:round}.hole{fill:#b87c20}.staple,.holddown{fill:none;stroke:#657783;stroke-width:1.6;stroke-linecap:round}.bar{transform-origin:72px 63px;transform:rotate(-174deg)}.bar path{fill:none;stroke:#657783;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}.spring{fill:#dce2e4;stroke:#657783;stroke-width:1.4}.spring-in{fill:#657783}.pending .bar{transform:rotate(0deg)}</style><g class="unavailable" opacity=".5" transform="translate(8 0)">
+    <ellipse class="shadow" cx="80" cy="82" rx="76" ry="3.6"/>
+    <rect class="wood" x="4" y="66" width="148" height="15" rx="3"/>
+    <rect class="wood-edge" x="4" y="76.5" width="148" height="4.5" rx="2"/>
+    <path class="wood-hi" d="M7 67.6H149"/>
+    <path class="grain" d="M14 71H52M62 73.5H104M112 70.5H146M22 74.5H40"/>
+    <rect class="plate" x="104" y="62.6" width="38" height="3.6" rx="1.2"/>
+    
+    <g class="cheese" style="transform:scale(1.000)">
+      <path class="wedge" d="M108 62.8H138V47Z"/>
+      <circle class="hole" cx="131" cy="57.5" r="2.4"/>
+      <circle class="hole" cx="135.4" cy="52.6" r="1.3"/>
+      <circle class="hole" cx="121" cy="60.4" r="1.3"/>
+    </g>
+    
+    
+    
+    <path class="staple" d="M64 66V60.5a3 3 0 0 1 6 0V66M74 66V60.5a3 3 0 0 1 6 0V66"/>
+    <path class="holddown" d="M12 57.4 104 61.6"/>
+    <g class="bar"><path d="M72 63H136V57.5"/></g>
+    <circle class="spring" cx="72" cy="63" r="4.6"/>
+    <circle class="spring-in" cx="72" cy="63" r="1.8"/></g></svg>

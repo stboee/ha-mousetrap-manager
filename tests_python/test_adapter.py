@@ -8,6 +8,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.components.sensor import SensorStateClass
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.mousetrap_manager.binary_sensor import PendingCheck
 from custom_components.mousetrap_manager.config_flow import MousetrapOptionsFlow, valid_topic
@@ -18,6 +21,10 @@ from custom_components.mousetrap_manager.sensor import CatchCount, MaintenanceSe
 @pytest.fixture
 async def hass(tmp_path):
     instance = HomeAssistant(str(tmp_path))
+    dr.async_setup(instance)
+    await dr.async_load(instance)
+    await er.async_load(instance)
+    await ar.async_load(instance)
     yield instance
     await instance.async_stop()
 

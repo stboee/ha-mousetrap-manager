@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from homeassistant.components import mqtt, persistent_notification
+from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
@@ -14,6 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_COOLDOWN, DOMAIN, SIGNAL_UPDATED, STORAGE_VERSION
 from .ledger import Ledger, LedgerError, instant
+from .presentation import display_settings, presentation, source_entities
 from .victor_recovery import VictorRecovery
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +64,7 @@ class TrapManager:
         await self._change(lambda ledger: ledger.sync_traps(self.traps, dt_util.utcnow().isoformat()))
         try:
             for trap in self.traps:
-                if trap.get("archived"):
+                if trap.get("archived") or trap.get("type", "snap") != "snap":
                     continue
 
                 async def message_received(message, trap_id=trap["id"]):
@@ -90,6 +92,9 @@ class TrapManager:
                 unsub = await mqtt.async_subscribe(self.hass, trap["topic"], message_received, qos=1)
                 self._unsubscribers.append(unsub)
             self._unsubscribers.append(async_track_time_interval(self.hass, self._tick, timedelta(minutes=1)))
+            self._unsubscribers.append(self.hass.bus.async_listen(EVENT_STATE_CHANGED, self._source_changed))
+            for event in ("entity_registry_updated", "device_registry_updated", "area_registry_updated"):
+                self._unsubscribers.append(self.hass.bus.async_listen(event, self._registry_changed))
         except Exception:
             self.async_stop()
             raise
@@ -126,6 +131,9 @@ class TrapManager:
             return True
 
     async def async_acknowledge(self, trap_id, event_id, caught):
+        config = next((t for t in self.traps if t["id"] == trap_id), {})
+        if config.get("type", "snap") != "snap":
+            raise LedgerError("Victor-fangst håndteres av Victor-integrasjonen")
         return await self._change(
             lambda ledger: ledger.acknowledge(
                 trap_id,
@@ -156,13 +164,32 @@ class TrapManager:
 
     def summary(self, trap_id, now=None):
         config = next((t for t in self.traps if t["id"] == trap_id), {})
-        return {
-            **self.ledger.maintenance(
-                trap_id, (now or dt_util.utcnow()).isoformat(), int(config.get("inspection_interval_days", 0))
-            ),
+        now = now or dt_util.utcnow()
+        summary = {
+            **self.ledger.maintenance(trap_id, now.isoformat(), int(config.get("inspection_interval_days", 0))),
             "show_bait_age": config.get("show_bait_age", True),
             "inspection_interval_days": int(config.get("inspection_interval_days", 0)),
         }
+        summary["presentation"] = presentation(self, config, summary, now)
+        return summary
+
+    @property
+    def display(self):
+        return display_settings(self.entry.options)
+
+    @callback
+    def _source_changed(self, event):
+        if self._stopping:
+            return
+        entity_id = event.data.get("entity_id")
+        if any(entity_id in source_entities(self.hass, t).values() for t in self.traps if not t.get("archived")):
+            async_dispatcher_send(self.hass, SIGNAL_UPDATED)
+            self._sync_notifications()
+
+    @callback
+    def _registry_changed(self, event):
+        if not self._stopping:
+            async_dispatcher_send(self.hass, SIGNAL_UPDATED)
 
     @callback
     def _tick(self, now):
@@ -212,3 +239,23 @@ class TrapManager:
             else:
                 persistent_notification.async_dismiss(self.hass, notice)
                 self._notified.pop(key, None)
+            health_notice = f"{DOMAIN}_health_{trap_id}"
+            warnings = summary["presentation"]["warnings"]
+            if (
+                self.notifications_enabled
+                and self.entry.options.get("health_notifications_enabled", False)
+                and warnings
+                and not trap["archived"]
+            ):
+                message = " · ".join(warnings)
+                if self._notified.get(health_notice) != message:
+                    persistent_notification.async_create(
+                        self.hass,
+                        f"**{trap['name']}**: {message}.",
+                        title="Musefelle: sensorkontakt eller batteri",
+                        notification_id=health_notice,
+                    )
+                    self._notified[health_notice] = message
+            else:
+                persistent_notification.async_dismiss(self.hass, health_notice)
+                self._notified.pop(health_notice, None)

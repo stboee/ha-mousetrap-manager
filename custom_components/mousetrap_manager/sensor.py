@@ -13,10 +13,16 @@ from .victor_recovery import RECOVERY_STATES
 
 async def async_setup_entry(hass, entry, async_add_entities):
     manager = hass.data[DOMAIN][entry.entry_id]
-    entities = [CatchCount(manager), VictorRecoveryStatus(manager)]
+    entities = [CatchCount(manager), VictorRecoveryStatus(manager), DashboardSettings(manager)]
     for config in manager.traps:
-        entities.extend([CatchCount(manager, config["id"]), TrapStatus(manager, config)])
-        entities.extend(MaintenanceSensor(manager, config["id"], key) for key in MAINTENANCE_SENSORS)
+        entities.append(TrapStatus(manager, config))
+        if config.get("type", "snap") == "snap":
+            entities.append(CatchCount(manager, config["id"]))
+        entities.extend(
+            MaintenanceSensor(manager, config["id"], key)
+            for key in MAINTENANCE_SENSORS
+            if config.get("type", "snap") == "snap" or key != "last_sensor_contact"
+        )
     async_add_entities(entities)
 
 
@@ -28,7 +34,7 @@ class CatchCount(TrapEntity, SensorEntity):
     def __init__(self, manager, trap_id=None):
         super().__init__(manager, trap_id)
         self._attr_unique_id = f"{DOMAIN}_{trap_id or manager.entry.entry_id}_catch_count"
-        self._attr_name = "Bekreftede fangster" if trap_id else "Samlet fangst"
+        self._attr_name = "Bekreftede fangster" if trap_id else "Snap-fangster"
 
     @property
     def native_value(self):
@@ -59,6 +65,26 @@ class VictorRecoveryStatus(TrapEntity, SensorEntity):
         return self.manager.victor_recovery.attributes
 
 
+class DashboardSettings(TrapEntity, SensorEntity):
+    """One presentation setup, shared by every browser and auto-discovering card."""
+
+    _attr_name = "Kortoppsett"
+    _attr_icon = "mdi:view-dashboard-outline"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, manager):
+        super().__init__(manager)
+        self._attr_unique_id = f"{DOMAIN}_{manager.entry.entry_id}_dashboard"
+
+    @property
+    def native_value(self):
+        return self.manager.ledger.data["revision"]
+
+    @property
+    def extra_state_attributes(self):
+        return {"mousetrap_manager_dashboard": True, "display": self.manager.display}
+
+
 class TrapStatus(TrapEntity, SensorEntity):
     _attr_icon = "mdi:rodent"
     _attr_name = "Status"
@@ -71,16 +97,19 @@ class TrapStatus(TrapEntity, SensorEntity):
     @property
     def native_value(self):
         trap = self.manager.summary(self.trap_id)
-        return "archived" if trap["archived"] else "pending" if trap["pending_event_id"] else "monitoring"
+        status = trap["presentation"]["status"]
+        return {"unavailable": "source_unavailable", "unknown": "source_unknown"}.get(status, status)
 
     @property
     def extra_state_attributes(self):
         trap = self.manager.summary(self.trap_id)
-        return {
+        attributes = {
             "mousetrap_manager": True,
             "trap_id": self.trap_id,
             "source_device_id": self.config.get("device_id"),
             "trap_name": trap["name"],
+            "archived": trap["archived"],
+            "presentation": trap["presentation"],
             "pending_event_id": trap["pending_event_id"],
             "catch_count": trap["catch_count"],
             "last_catch": trap["last_catch"],
@@ -104,6 +133,10 @@ class TrapStatus(TrapEntity, SensorEntity):
                 )
             },
         }
+        if self.config.get("type") == "victor":
+            for key in ("catch_count", "last_catch", "last_movement", "last_sensor_contact"):
+                attributes.pop(key, None)
+        return attributes
 
 
 MAINTENANCE_SENSORS = {
@@ -125,7 +158,9 @@ class MaintenanceSensor(TrapEntity, SensorEntity):
         if self.is_age:
             self._attr_device_class = SensorDeviceClass.DURATION
             self._attr_native_unit_of_measurement = UnitOfTime.DAYS
-            self._attr_state_class = SensorStateClass.MEASUREMENT
+            config = next((t for t in manager.traps if t["id"] == trap_id), {})
+            if config.get("type", "snap") == "snap":
+                self._attr_state_class = SensorStateClass.MEASUREMENT
             self._attr_suggested_display_precision = 0
         else:
             self._attr_device_class = SensorDeviceClass.TIMESTAMP

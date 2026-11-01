@@ -1,7 +1,7 @@
 # Avklarte beslutninger — oppdatert 1. november 2026
 
 - Egen integrasjon og egen kortvariant i samme repo. Repositoriet var opprinnelig privat og er nå offentlig (bekreftet via GitHub 1. november).
-- Originalkortets funksjoner videreføres; senere originalendringer vurderes separat.
+- Egen variant: relevante originalfunksjoner videreføres etter avklaring; senere originalendringer vurderes separat.
 - HA-målversjon: 2026.10.4.
 - Første sensor: Aqara DJT12LM/T1, Zigbee2MQTT, MQTT-topic `zigbee2mqtt/Vibrasjon`, hendelse `movement`.
 - Sensorhendelse betyr kontrollbehov, ikke bekreftet fangst.
@@ -11,7 +11,7 @@
 - Alle feller administreres sentralt uten manuelle hjelpere per felle.
 - Tilstand og hendelser lagres på HA-serveren og overlever normal restart.
 - Ingen mobilvarsling. Eventuelle varsler i HAs varslingspanel må kunne deaktiveres helt; standard er av.
-- Fangstteller per felle og samlet total, med vanlig HA-langtidsstatistikk.
+- Snap-fangstteller per felle og Snap-teller, med vanlig HA-langtidsstatistikk. Ingen felles Snap-/Victor-total.
 - Ingen historisk omskriving av HA-statistikk ved angring.
 - Lesbar hendelseslogg i tillegg til tall, basert på strukturerte hendelser.
 - Angre siste fangst finnes bare i integrasjonens administrasjon, med valgt felle, tidspunkt og bekreftelse.
@@ -46,3 +46,17 @@ Arbeidsmåte avklart etter første implementering: videre endringer kan gjøres 
 - Oppstart, pågående inn-/utlasting, ny innlogging, HAs egne setup-retry-forsøk og manuell deaktivering respekteres. Oppstart medfører ny observasjonstid.
 - Antall forsøk og siste reload-tidspunkt lagres før handlingen. Gyldig gjenoppretting nullstiller antall forsøk, mens sperretiden beholdes. Manuell nullstilling av forsøksantall finnes i konfigurasjonen.
 - Diagnostikkstatus og HA-logg viser handlingene. Ingen nye varsler eller mobilvarsler legges til.
+
+## Felles oppsett og Victor-visning – 0.3.0
+
+- Brukeren godkjente Victor M1-utkast 2 og ga uttrykkelig startbeskjed etter diskusjonen.
+- Integrasjonen eier oppsett, terskler, frister, statusprioritering og tilgjengelige handlinger. Kortet viser dette og formidler handlinger.
+- Ett felles kortoppsett, per-felle-overstyring, automatisk visning av nye aktive feller og skjuling av arkiverte. Minimal YAML består bare av korttypen. Eldre lokale kortvalg fases ut med synlig forklaring.
+- Bare snap og Victor M1. Andre originaltyper og deres frontendlogikk tas ut. Original runtime beholdes urørt som referanse.
+- Victor bruker eksisterende enhet og kildeentiteter. Ingen ny API-klient, innlogging, dupliserte fangsttellere, historisk import eller ny langtidsstatistikk.
+- Ingen felles Snap-/Victor-sum, og ingen ny sum for Victor. Snap beholder eksisterende fangster/statistikk; Victor viser kildeverdier per felle.
+- Victor får vedlikehold for åte og inspeksjon. Inspeksjon logges, omfatter åtet og endrer ikke Victor-fangst, telleverk eller kildestatus. Ingen Bekreft fangst/Falsk alarm for Victor.
+- Normal Victor-status er Ingen fangst meldt. Manglende/ukjent/utilgjengelig kilde skal ikke fremstilles som normalstatus.
+- Godkjent grafikk: tydelig frontfasong, store statusmarkeringer og stor tekst øverst. Ingen liten grå forklaring under fellen.
+- Gammel kontakt bygger på faktisk last_seen/last_report_date. Den skilles fra utilgjengelig kilde og utløser ikke automatisk Victor-reload alene. Konfigurerbare terskler og valgfrie HA-varsler, helt avslått som standard. Ingen mobilvarsling.
+- Tidligere lagring videreføres additivt med stabile felle-ID-er; Snap-historikk, ventende kontroll og vedlikehold beholdes.

@@ -11,7 +11,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities(
         entity
         for config in manager.traps
-        for entity in (PendingCheck(manager, config["id"]), InspectionDue(manager, config["id"]))
+        for entity in ([PendingCheck(manager, config["id"])] if config.get("type", "snap") == "snap" else [])
+        + [InspectionDue(manager, config["id"])]
     )
 
 

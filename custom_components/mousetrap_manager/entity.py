@@ -1,5 +1,6 @@
 """Shared entity behavior."""
 
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, Entity
 
@@ -24,11 +25,14 @@ class TrapEntity(Entity):
                 model="Felleregister",
             )
         trap = self.manager.ledger.summary(self.trap_id)
+        config = next((t for t in self.manager.traps if t["id"] == self.trap_id), {})
+        source = dr.async_get(self.manager.hass).async_get(config.get("device_id", ""))
         return DeviceInfo(
             identifiers={(DOMAIN, self.trap_id)},
             name=trap["name"],
             manufacturer="Mousetrap Manager",
-            model="Vibrasjonsfelle",
+            model="Victor M1 vedlikehold" if config.get("type") == "victor" else "Vibrasjonsfelle",
+            **({"via_device_id": source.id} if source else {}),
         )
 
     async def async_added_to_hass(self):

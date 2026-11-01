@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 170" width="1080" height="510" role="img" aria-labelledby="title-capture">
+      <title id="title-capture">Victor M1 – Fangst meldt</title>
+      <defs>
+      <linearGradient id="top-capture" x1="0" y1="0" x2=".6" y2="1"><stop stop-color="#555b62"/><stop offset="1" stop-color="#272d34"/></linearGradient>
+      <linearGradient id="side-capture" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#242a31"/><stop offset="1" stop-color="#11171e"/></linearGradient>
+      <linearGradient id="bevel-capture" x1="0" y1="0" x2="1" y2=".5"><stop stop-color="#9097a0"/><stop offset="1" stop-color="#626c78"/></linearGradient>
+    </defs>
+    <ellipse cx="167" cy="151" rx="146" ry="5" fill="#c51f3b" opacity=".14"/>
+    <g transform="translate(5 10) scale(.5)" stroke-linejoin="round" opacity="1">
+      <path d="M33 223 104 247 187 270 616 161 613 175 189 282 104 259 31 232Z" fill="#151b22" stroke="#586371" stroke-width="2"/>
+      <path d="M207 140 551 59Q573 58 582 81L616 158Q622 171 608 176L192 277Q184 279 185 266Z" fill="url(#side-capture)" stroke="#3f4a57" stroke-width="2.2"/>
+      <path d="M71 107Q70 102 85 98L447 29Q453 28 461 31L550 54Q571 59 575 75L212 146 144 123Z" fill="url(#top-capture)" stroke="#6b747f" stroke-width="2.1"/>
+      <path d="M77 107 452 33 542 57" fill="none" stroke="#a9afb7" stroke-width="1.8" stroke-opacity=".34"/>
+      <path d="M145 123 454 56" fill="none" stroke="#11171d" stroke-width="3.1"/>
+      <path d="M146 126 202 140Q211 143 209 153L188 263Q187 272 180 269L110 251Z" fill="url(#bevel-capture)" stroke="#8c96a2" stroke-width="1.9"/>
+      <path d="M75 110Q67 111 63 124L52 161 119 178 140 126Z" fill="#69737e" stroke="#8b949e" stroke-width="1.6"/>
+      <path d="M53 166 118 183 104 248 34 225Z" fill="#3d4753" stroke="#788492" stroke-width="1.6"/>
+      <ellipse cx="82.67" cy="128.25" rx="4.3" ry="6" transform="rotate(16 82.67 128.25)" fill="#070c12"/><ellipse cx="100.50" cy="132.75" rx="4.3" ry="6" transform="rotate(16 100.50 132.75)" fill="#070c12"/><ellipse cx="118.33" cy="137.25" rx="4.3" ry="6" transform="rotate(16 118.33 137.25)" fill="#070c12"/><ellipse cx="74.33" cy="146.42" rx="4.3" ry="6" transform="rotate(16 74.33 146.42)" fill="#070c12"/><ellipse cx="92.50" cy="151.25" rx="4.3" ry="6" transform="rotate(16 92.50 151.25)" fill="#070c12"/><ellipse cx="110.67" cy="156.08" rx="4.3" ry="6" transform="rotate(16 110.67 156.08)" fill="#070c12"/>
+      <ellipse cx="63.54" cy="186.79" rx="4.3" ry="6" transform="rotate(16 63.54 186.79)" fill="#070c12"/><ellipse cx="81.12" cy="191.88" rx="4.3" ry="6" transform="rotate(16 81.12 191.88)" fill="#070c12"/><ellipse cx="98.71" cy="196.96" rx="4.3" ry="6" transform="rotate(16 98.71 196.96)" fill="#070c12"/><ellipse cx="55.62" cy="209.71" rx="4.3" ry="6" transform="rotate(16 55.62 209.71)" fill="#070c12"/><ellipse cx="74.38" cy="215.62" rx="4.3" ry="6" transform="rotate(16 74.38 215.62)" fill="#070c12"/><ellipse cx="93.12" cy="221.54" rx="4.3" ry="6" transform="rotate(16 93.12 221.54)" fill="#070c12"/>
+      <path d="M52 161 120 180" stroke="#10161e" stroke-width="5"/>
+      <path d="M39 223 101 243" stroke="#121922" stroke-width="3.5"/>
+      <path d="M148 131 118 246" stroke="#151d27" stroke-width="3"/>
+      <path d="M225 160 541 90Q552 88 557 101L582 153 216 248 226 173" fill="none" stroke="#53606c" stroke-width="2.3" stroke-opacity=".24"/>
+      <path d="M335 78 495 48Q510 46 525 57L539 71Q546 78 541 88L537 103 402 132Q390 135 382 125L373 111 343 103Q330 99 326 91Q322 83 335 78Z" fill="#1c242d" stroke="#acb4bd" stroke-width="5"/>
+      <path d="M339 83 496 53Q507 51 519 60L533 74 529 95 402 124Q394 126 387 116L380 104 346 97Q334 94 332 90Z" fill="#0c1219" stroke="#5b6774" stroke-width="1.4"/>
+      <path d="M355 84 391 76 414 84 378 92Z" fill="#596673" stroke="#82909e" stroke-width="1.2"/>
+      <path d="M441 68 483 59 507 67 465 77Z" fill="#424d59" stroke="#7c8996" stroke-width="1.4"/>
+      <g transform="translate(476 68) rotate(-11) scale(1 .42)" fill="none" stroke="#d0d6dc" stroke-width="2.5" stroke-linecap="round">
+        <path d="M-6-4A8 8 0 1 0 6-4M0-9V0"/>
+      </g>
+      <text x="416" y="197" text-anchor="middle" transform="rotate(-14 416 197)" fill="#e6ebf0" font-family="DejaVu Sans,Arial,sans-serif" font-size="37" font-weight="bold" letter-spacing="-.4">VICTOR</text>
+      <path d="M34 226 105 250 188 275 614 168" fill="none" stroke="#c51f3b" stroke-width="4.5"/>
+    </g>
+    <g transform="translate(326 34)">
+      <circle r="29" fill="white"/>
+      <circle r="26" fill="#c51f3b"/>
+      <g transform="scale(1.25)"><g fill="white"><ellipse cx="-2" cy="3" rx="9" ry="6"/>
+          <path d="M3-1 12 4Q14 6 9 8L2 8Z"/><circle cx="4" cy="-3" r="3.8"/></g>
+          <path d="M-10 6C-18 12-21 2-16-1Q-13-2-14-5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="6.4" cy="1.2" r=".9" fill="#c51f3b"/></g>
+    </g>
+    </svg>
