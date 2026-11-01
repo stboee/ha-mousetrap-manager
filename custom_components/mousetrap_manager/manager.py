@@ -13,6 +13,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .attention import attention_overview
 from .const import DEFAULT_COOLDOWN, DOMAIN, SIGNAL_UPDATED, STORAGE_VERSION
 from .ledger import Ledger, LedgerError, instant
 from .presentation import display_settings, presentation, source_entities
@@ -176,6 +177,9 @@ class TrapManager:
     @property
     def display(self):
         return display_settings(self.entry.options)
+
+    def attention(self, now=None):
+        return attention_overview(self, now or dt_util.utcnow())
 
     @callback
     def _source_changed(self, event):

@@ -2,7 +2,7 @@
 
 Videreutvikling av [Rodent Trap Card](https://github.com/kedube/ha-rodent-traps), med en Home Assistant-integrasjon som holder et felles, varig register over musefeller.
 
-**Utviklingsversjon: 0.3.0. Målplattform: Home Assistant 2026.10.4.** Testet programvare er ikke det samme som verifisert drift på en fysisk felle; se testplanen nedenfor før ordinær bruk.
+**Utviklingsversjon: 0.4.0. Målplattform: Home Assistant 2026.10.4.** Testet programvare er ikke det samme som verifisert drift på en fysisk felle; se testplanen nedenfor før ordinær bruk.
 
 ## Arbeidsflyt
 
@@ -45,7 +45,7 @@ Ikke bare kopier Python-filene: `frontend`, `translations`, `manifest.json` og `
 4. Velg Aqara-sensorens MQTT-enhet, et fellenavn og nøyaktig MQTT-topic. For den første kjente sensoren er topic `zigbee2mqtt/Vibrasjon`.
 5. Legg til denne dashboardressursen som **JavaScript-modul** under Innstillinger → Dashboards → Ressurser (avansert modus kan være nødvendig):
 
-`/mousetrap_manager/mousetrap-manager-card.js?v=0.3.0`
+`/mousetrap_manager/mousetrap-manager-card.js?v=0.4.0`
 
 6. Last nettleseren/Companion-appen på nytt og legg til **Mousetrap Manager Card**. Kortet finner alle aktive feller automatisk, også feller som legges til senere.
 
@@ -53,7 +53,7 @@ Ingen ekstra hjelpere per felle trengs. `hacs.json` beskriver integrasjonen; kor
 
 ### Oppgradering fra 0.1.x eller 0.2.x
 
-Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=0.3.0` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Ved oppgradering fra 0.1.x er åtebytte og sensorkontakt ukjent til de registreres. Tidspunkter og vedlikehold som allerede er registrert i 0.2.x beholdes.
+Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=0.4.0` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Ved oppgradering fra 0.1.x er åtebytte og sensorkontakt ukjent til de registreres. Tidspunkter og vedlikehold som allerede er registrert i 0.2.x beholdes.
 
 ## Kort og felles oppsett
 
@@ -63,13 +63,49 @@ type: custom:mousetrap-manager-card
 
 Alle aktive feller vises automatisk. Arkiverte feller skjules og beholder historikken. **Felles kortoppsett og terskler** i integrasjonen styrer tittel, sortering, maksimalt antall kolonner, oppsummering, illustrasjoner, animasjoner og valgte verdier. Layouten tilpasser seg skjermbredden. Per felle kan du velge navn, plassering og **Overstyr felles visning og terskler**. Et tomt plasseringsfelt bruker kildeenhetens HA-område.
 
-Tidligere YAML-valg for navn, roller, handlinger, visning og et fast `traps`-utvalg brukes ikke lenger. Eksisterende kort viser en forklaring og følger det sentrale oppsettet; forenkle YAML som ovenfor. Dette er en bevisst endring i 0.3.0. Flere ulike kortprofiler støttes ikke nå. Bare snap-feller og Victor M1 vises; de andre originaltypene er tatt ut av vår runtime.
+Tidligere YAML-valg for navn, roller, handlinger, visning og et fast `traps`-utvalg brukes ikke lenger. Eksisterende kort viser en forklaring og følger det sentrale oppsettet; forenkle YAML som ovenfor. Dette er en bevisst endring fra 0.3.0. HAs egne `grid_options` og `visibility` kan brukes i tillegg til korttype og visningsmodus. Fullvisning og tilsyn kan brukes samtidig; øvrige visningsvalg styres i integrasjonen. Flere ulike oppsettsprofiler støttes ikke nå. Bare snap-feller og Victor M1 vises; de andre originaltypene er tatt ut av vår runtime.
 
 Store statusoverskrifter og tydelige symboler står øverst. Aktiv overvåking viser en oppspent snap-felle uten mus. Bevegelse viser en utløst felle med spørsmålstegn. **Overvåking aktiv** betyr at programvaren overvåker; vibrasjonssensoren kan ikke bevise fysisk armering. Integrasjonens ikon bruker lokalt medfølgende `mdi:rodent`.
 
 Oppsummeringen holder felletypene adskilt og viser bare registerets **Snap-fangster**, inkludert arkiverte snap-feller. Hver Victor-felle viser sine egne kildeverdier. Det beregnes ingen felles Snap-/Victor-sum eller ny Victor-sum.
 
 Hendelsesloggen kan filtreres per felle og henter eldre hendelser i sider. Den lagres på serveren, ikke i nettleseren. Vedlikehold ligger sammenfoldet i normaltilstand og vises med kontrollhandlingene når det trengs.
+
+## Kompakt tilsynskort på startsiden
+
+Fra 0.4.0 har samme customkort to visninger. **Fullvisning** beholdes på Musefeller-fanen. **Tilsyn** er en liten liste uten felleillustrasjoner, måleverdier, kvitteringsknapper eller hendelseslogg. Den viser bare feller som trenger oppmerksomhet, med navn og konkrete årsaker. Ett trykk åpner fullvisningen. Den passer i én murverkskolonne.
+
+1. Oppdater hele integrasjonen til 0.4.0 og start HA på nytt. Bruk ressursen med `?v=0.4.0`, og last nettleseren/appen på nytt. Fjern eventuelle eldre ressursoppføringer som laster en annen kopi av samme kort.
+2. Åpne **Konfigurer → Tilsynsvisning på startsiden**. Velg hvilke årsaker som skal vises. Standard: meldt Victor-fangst, ventende snap-kontroll, inspeksjonsfrist og utilgjengelig kilde/ukjent Victor-status. Gammel/ukjent sensorkontakt og lavt batteri kan slås på separat og bruker de eksisterende tersklene.
+3. Legg inn adressestien til din Musefeller-fane, for eksempel `/lovelace/musefeller` eller `/dashboard-hjem/musefeller`. Bruk stien fra din egen adresse; en ny fane opprettes ikke automatisk. Tomt felt er tillatt under oppsett og gir en forklaring i kortet.
+4. Legg til et nytt **Mousetrap Manager**-kort på startsiden. Velg **Tilsyn på startsiden** i korteditoren. Editorens standardvalg setter opp HAs betingede synlighet med den faktiske tilsynsentiteten. Andre synlighetsbetingelser beholdes.
+
+Integrasjonen oppretter én felles binærsensor **Mousetrap Manager Tilsyn nødvendig** automatisk. Standard-ID er `binary_sensor.mousetrap_manager_tilsyn_nodvendig`; bruk ID-en som vises i korteditoren hvis du har omdøpt entiteten. Ingen hjelpere eller lister per felle må vedlikeholdes. Nye aktive feller tas med automatisk, og arkiverte utelates.
+
+Ved YAML-oppsett brukes:
+
+```yaml
+type: custom:mousetrap-manager-card
+mode: attention
+visibility:
+  - condition: state
+    entity: binary_sensor.mousetrap_manager_tilsyn_nodvendig
+    state_not: "off"
+```
+
+Denne synlighetsbetingelsen fjerner hele kortet fra HA-layouten ved normal drift. Bruk **ikke av**, slik at `unknown` og `unavailable` fortsatt viser en feil. Det er ikke tilstrekkelig å bruke en betingelse som bare viser kortet når sensoren er `on`. Det er HAs betingede synlighet som sørger for at kortets plass i murverk fjernes. Uten denne betingelsen kan kortet brukes som en alltid synlig, kompakt statusvisning. Normalstatus kan vises i editoren for å gjøre kortet redigerbart.
+
+Fullvisningen bruker fortsatt:
+
+```yaml
+type: custom:mousetrap-manager-card
+```
+
+Fangst prioriteres før kontrollbehov, deretter inspeksjon og kilde-/helseproblemer. En felle med flere årsaker får én rad med alle årsakene og telles én gang. Antallet er **feller som trenger tilsyn**, ikke en ny fangsttotal. Ingen nye fangsttellere eller langtidsstatistikksensorer legges til. Tilsynsvalgene er uavhengige av HA-varsler og mobilvarsling; eksisterende varsler forblir avslått som standard.
+
+Tilsynsstatus, ferdige tekster, sortering og årsaksvalg beregnes i integrasjonen. Kortet filtrerer ikke feller eller tolker sensorer selv. Hvis tilsynsentiteten er borte, utilgjengelig, gjenopprettet eller har et ukjent dataformat, viser kortet en feil fremfor å bruke gamle fangstopplysninger. Native synlighetsbetingelser som du legger til selv kan begrense når kortet er synlig.
+
+Korteditoren viser nå versjonsnummeret. For teknisk kontroll kan `customElements.get("mousetrap-manager-card").getVersion()` kjøres i nettleserkonsollen.
 
 ## Victor Smart-Kill Wi-Fi M1
 
@@ -166,7 +202,7 @@ npx playwright install chromium
 npm test
 ```
 
-Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk registrering/arkivering, handlinger, kildelesing, mobilbredde, logg og syntaks. De tidligere testene av originalkortets frontendmodell ble erstattet da modellen flyttet til Python i 0.3.0; de finnes i tag v0.2.1. Originalprosjektets publiseringstester ligger bare som referanse i `docs/upstream/tests`.
+Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene dekker også kompakt tilsyn, synlighet, feilstatus og editorens oppsett av native HA-betingelser. De dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk registrering/arkivering, handlinger, kildelesing, mobilbredde, logg og syntaks. De tidligere testene av originalkortets frontendmodell ble erstattet da modellen flyttet til Python i 0.3.0; de finnes i tag v0.2.1. Originalprosjektets publiseringstester ligger bare som referanse i `docs/upstream/tests`.
 
 `scripts/derive_card.py` dokumenterer den opprinnelige avledningen fra den låste originalfilen. Begge leverte kopier av vår kortfil skal være identiske: `dist/mousetrap-manager-card.js` og filen i integrasjonens `frontend`-mappe. Originalfilen i `dist/rodent-trap-card.js` beholdes uendret som sammenligningsgrunnlag.
 

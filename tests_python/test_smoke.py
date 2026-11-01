@@ -95,7 +95,27 @@ async def test_native_setup_creates_entities_and_unloads(tmp_path, recovery_enab
                 managed = entity_registry.async_get(hass).async_get(extra[0].entity_id)
                 assert device_registry.async_get(hass).async_get(managed.device_id).via_device_id == device.id
                 assert device_registry.async_get(hass).async_get(device.id).model == "M1"
-            recovery = hass.data["mousetrap_manager"][entry.entry_id].victor_recovery
+            manager = hass.data["mousetrap_manager"][entry.entry_id]
+            attention = next(s for s in states if s.attributes.get("mousetrap_manager_attention"))
+            assert attention.entity_id == "binary_sensor.mousetrap_manager_tilsyn_nodvendig"
+            assert attention.state == "off" and attention.attributes["count"] == 0
+            await manager._change(lambda ledger: ledger.movement("a", "2026-11-02T10:00:00+00:00"))
+            await hass.async_block_till_done()
+            attention = hass.states.get(attention.entity_id)
+            assert attention.state == "on" and attention.attributes["count"] == 1
+            assert attention.attributes["items"][0]["name"] == "Loft"
+            event = manager.ledger.summary("a")["pending_event_id"]
+            await manager.async_acknowledge("a", event, False)
+            await hass.async_block_till_done()
+            assert hass.states.get(attention.entity_id).state == "off"
+            if include_victor:
+                hass.states.async_set(capture.entity_id, "on")
+                await hass.async_block_till_done()
+                assert hass.states.get(attention.entity_id).attributes["items"][0]["name"] == "Victor"
+                await manager.async_maintenance("v", "inspection_completed", "initial")
+                await hass.async_block_till_done()
+                assert hass.states.get(attention.entity_id).state == "on"
+            recovery = manager.victor_recovery
             diagnostic = [s for s in states if s.attributes.get("device_class") == "enum"]
             assert len(diagnostic) == 1
             assert diagnostic[0].state == ("starting" if recovery_enabled else "disabled")

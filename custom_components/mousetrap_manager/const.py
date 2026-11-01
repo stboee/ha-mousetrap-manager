@@ -1,7 +1,7 @@
 """Constants for Mousetrap Manager."""
 
 DOMAIN = "mousetrap_manager"
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 PLATFORMS = ["sensor", "binary_sensor", "button"]
 DEFAULT_COOLDOWN = 30
 STORAGE_VERSION = 1

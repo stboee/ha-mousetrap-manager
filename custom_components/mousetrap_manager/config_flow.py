@@ -9,6 +9,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 
+from .attention import ATTENTION_DEFAULTS, attention_settings, valid_navigation_path
 from .const import DEFAULT_COOLDOWN, DOMAIN
 from .ledger import LedgerError
 from .presentation import DISPLAY_DEFAULTS, METRIC_LABELS, SOURCE_SUFFIXES, display_settings
@@ -56,8 +57,40 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         return self.async_show_menu(
             step_id="init",
-            menu_options=["add_trap", "add_victor", "edit_trap", "display", "settings", "victor_recovery", "undo"],
+            menu_options=[
+                "add_trap",
+                "add_victor",
+                "edit_trap",
+                "display",
+                "attention",
+                "settings",
+                "victor_recovery",
+                "undo",
+            ],
         )
+
+    async def async_step_attention(self, user_input=None):
+        options = self._options()
+        values = attention_settings(options)
+        errors = {}
+        if user_input is not None:
+            values.update(user_input)
+            values["title"] = values["title"].strip()
+            if not values["title"]:
+                errors["title"] = "empty_title"
+            if not valid_navigation_path(values["navigation_path"]):
+                errors["navigation_path"] = "invalid_navigation_path"
+            if not errors:
+                options["attention"] = {key: values[key] for key in ATTENTION_DEFAULTS}
+                return self.async_create_entry(title="", data=options)
+        schema = {
+            vol.Required("title", default=values["title"]): str,
+            vol.Optional("navigation_path", default=values["navigation_path"]): str,
+        }
+        for key in ATTENTION_DEFAULTS:
+            if key.startswith("include_"):
+                schema[vol.Required(key, default=values[key])] = bool
+        return self.async_show_form(step_id="attention", data_schema=vol.Schema(schema), errors=errors)
 
     async def async_step_victor_recovery(self, user_input=None):
         options = self._options()

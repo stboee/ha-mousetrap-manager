@@ -5,11 +5,15 @@
  */
 (() => {
   "use strict";
-  const VERSION = "0.3.0";
+  const VERSION = "0.4.0";
   const CARD_TAG = "mousetrap-manager-card";
   const EDITOR_TAG = "mousetrap-manager-card-editor";
   const esc = (s) => String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const unknown = (s) => s === undefined || s === null || ["unknown", "unavailable", ""].includes(String(s));
+  const internalPath = (v) => typeof v === "string" && /^\/(?!\/)/.test(v) && !/[\\\x00-\x20\x7f]/.test(v);
+  const attentionEntity = (hass) => Object.entries(hass && hass.states || {}).find((p) => p[1].attributes.mousetrap_manager_attention);
+  const attentionCondition = (entity) => ({condition:"state",entity,state_not:"off"});
+  const isAttentionCondition = (c, entity) => c && c.condition === "state" && c.entity === entity && c.state_not === "off" && Object.keys(c).length === 3;
   const events = {
     registered: "Felle registrert", renamed: "Felle omd\u00f8pt", archived: "Felle arkivert", reactivated: "Felle tatt i bruk igjen",
     movement: "Bevegelse registrert", capture_confirmed: "Fangst bekreftet", false_alarm: "Falsk alarm kvittert",
@@ -27,6 +31,7 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
 .actions{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 14px}.maintenance{margin:0 14px 14px}.maintenance summary{cursor:pointer;min-height:36px;padding:7px 0}.maintenance .actions{padding:8px 0 0}.message{padding:0 14px 14px;margin:0;overflow-wrap:anywhere}.message:empty{display:none}.empty{padding:12px 0;font-size:16px;line-height:1.5}
 .manager-journal{margin-top:18px;border-top:1px solid var(--divider-color,#dadfe4);padding-top:12px}.manager-journal>summary{font-size:17px;font-weight:600;cursor:pointer;padding:5px 0}.journal-controls{display:flex;gap:8px;margin:10px 0}.journal-controls select{max-width:100%;min-height:44px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#ccc);border-radius:6px;padding:6px}.journal-events{padding-left:22px;font-size:14px;line-height:1.5}.journal-events li{padding:4px 0;overflow-wrap:anywhere}.journal-error{overflow-wrap:anywhere}
 .tile.animate.capture{animation:attention 2.4s ease-in-out 3}@keyframes attention{50%{border-color:#f09aa8}}@media(prefers-reduced-motion:reduce){.tile.animate.capture{animation:none}}@media(max-width:340px){ha-card{padding:10px}.metrics{gap:8px;padding:10px}.status{font-size:20px}}
+[hidden]{display:none!important}.attention-card{padding:0}.attention-content{display:block;padding:12px 14px;color:inherit;text-decoration:none}.attention-content h2{font-size:18px;margin:0 0 3px}.attention-content p{margin:0;line-height:1.4}.attention-summary{font-size:14px}.attention-items{padding:0;margin:8px 0 0;list-style:none}.attention-row{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--divider-color,#dadfe4);min-width:0}.attention-row>div{min-width:0}.attention-mark{flex:none;width:22px;align-self:flex-start;--mdc-icon-size:22px}.attention-name{display:block;font-size:16px;overflow-wrap:anywhere}.attention-reason{display:block;font-size:14px;line-height:1.4;overflow-wrap:anywhere}.attention-open{display:block;margin-top:8px;font-size:14px;font-weight:600;color:var(--primary-color,#0277bd)}.attention-link:focus-visible{outline:3px solid var(--primary-color,#03a9f4);outline-offset:-3px}.attention-error{border-left:5px solid #986000}.attention-hint{padding-top:8px;font-size:14px}
 `;
 
   function metricText(hass, metric) {
@@ -51,7 +56,7 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
   class MousetrapManagerCard extends HTMLElement {
     constructor() {
       super(); this.attachShadow({mode:"open"}); this._busy = new Set(); this._messages = new Map(); this._journalRequest = 0;
-      this.shadowRoot.innerHTML = `<style>${CSS}</style><ha-card><div class="overview"></div><div class="grid"></div><details class="manager-journal"><summary>Hendelseslogg</summary><div class="journal-controls"><select aria-label="Velg felle i hendelsesloggen"></select><button class="refresh">Oppdater</button></div><p class="journal-error" role="status"></p><ol class="journal-events"></ol><button class="more" hidden>Vis eldre</button></details></ha-card>`;
+      this.shadowRoot.innerHTML = `<style>${CSS}</style><ha-card class="full-card"><div class="overview"></div><div class="grid"></div><details class="manager-journal"><summary>Hendelseslogg</summary><div class="journal-controls"><select aria-label="Velg felle i hendelsesloggen"></select><button class="refresh">Oppdater</button></div><p class="journal-error" role="status"></p><ol class="journal-events"></ol><button class="more" hidden>Vis eldre</button></details></ha-card><ha-card class="attention-card" hidden></ha-card>`;
       const journal = this.shadowRoot.querySelector(".manager-journal");
       journal.addEventListener("toggle", () => { if (journal.open) this._loadJournal(); });
       this.shadowRoot.querySelector("select").addEventListener("change", () => this._loadJournal());
@@ -60,18 +65,25 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
     }
     connectedCallback() { if (!this._timer) this._timer = setInterval(() => this._render(),60000); }
     disconnectedCallback() { clearInterval(this._timer); this._timer = null; ++this._journalRequest; }
+    set preview(value) { this._preview = !!value; this._render(); }
+    static getVersion() { return VERSION; }
     static getConfigElement() { return document.createElement(EDITOR_TAG); }
     static getStubConfig() { return {type:"custom:" + CARD_TAG}; }
     setConfig(config) {
       if (!config || typeof config !== "object") throw new Error("Ugyldig kortoppsett");
-      this._legacy = Object.keys(config).some((k) => k !== "type");
+      this._mode = config.mode || "full";
+      if (!["full","attention"].includes(this._mode)) throw new Error("Visningsmodus m\u00e5 v\u00e6re full eller attention");
+      this._legacy = Object.keys(config).some((k) => !["type","mode","grid_options","visibility","view_layout","layout_options"].includes(k));
       this._render();
     }
     set hass(hass) { this._hass = hass; this._render(); }
-    getCardSize() { return 5; }
+    getCardSize() { return this._mode === "attention" ? Math.max(1,Math.ceil(this.getBoundingClientRect().height / 50)) : 5; }
     getGridOptions() { return {columns:12,min_columns:6,rows:"auto"}; }
     _render() {
       if (!this._hass) return;
+      if (this._mode === "attention") { this._renderAttention(); return; }
+      this.shadowRoot.querySelector(".full-card").hidden = false;
+      this.shadowRoot.querySelector(".attention-card").hidden = true;
       const states = Object.entries(this._hass.states || {});
       const setup = states.find((p) => p[1].attributes.mousetrap_manager_dashboard && !unknown(p[1].state));
       const settings = setup ? setup[1].attributes.display : {};
@@ -80,8 +92,8 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
       this._traps = traps;
       const overview = this.shadowRoot.querySelector(".overview");
       if (!setup) {
-        overview.innerHTML = '<p class="empty">Kortoppsettet er utilgjengelig. Kontroller at Mousetrap Manager er oppdatert til v0.3.0 og lastet.</p>';
-        this.shadowRoot.querySelector(".grid").innerHTML = ""; return;
+        overview.innerHTML = '<p class="empty">Kortoppsettet er utilgjengelig. Kontroller at Mousetrap Manager er oppdatert og lastet.</p>';
+        this.shadowRoot.querySelector(".grid").innerHTML = ""; this._markup = null; return;
       }
       const model = traps.map(([entity, st], index) => {
         const a = st.attributes;
@@ -112,6 +124,39 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
       const selected = select.value;
       const options = '<option value="">Alle feller</option>' + allTraps.map(([id,st]) => `<option value="${esc(st.attributes.trap_id)}">${esc(st.attributes.trap_name)}</option>`).join("");
       if (select.innerHTML !== options) { select.innerHTML = options; select.value = selected; }
+    }
+    _attentionHTML(markup) {
+      if (this._attentionMarkup === markup) return;
+      const card = this.shadowRoot.querySelector(".attention-card");
+      const previousLink = card.querySelector(".attention-link");
+      const focused = !!previousLink && this.shadowRoot.activeElement === previousLink;
+      card.innerHTML = markup; this._attentionMarkup = markup;
+      this.dispatchEvent(new CustomEvent("card-size-changed",{bubbles:true,composed:true}));
+      if (focused && card.querySelector(".attention-link")) card.querySelector(".attention-link").focus({preventScroll:true});
+    }
+    _renderAttention() {
+      const card = this.shadowRoot.querySelector(".attention-card");
+      this.shadowRoot.querySelector(".full-card").hidden = true;
+      const entry = attentionEntity(this._hass);
+      const state = entry && entry[1];
+      const a = state && state.attributes;
+      const loaded = state && !unknown(state.state) && !a.restored && a.schema_version === 1 &&
+        typeof a.title === "string" && typeof a.summary === "string" && Number.isInteger(a.count) && a.count >= 0 &&
+        Array.isArray(a.items) && a.items.every((i) => i && typeof i.name === "string" && typeof i.reason_text === "string");
+      // HA visibility removes the whole card from masonry; normal data stays editable in previews.
+      card.hidden = false;
+      if (!loaded) {
+        this._attentionHTML('<div class="attention-content attention-error" role="status"><h2>Musefeller \u2013 status ukjent</h2><p>Tilsynsstatus er utilgjengelig. Kontroller at integrasjonen og kortet er oppdatert og lastet.</p></div>');
+        return;
+      }
+      // The integration supplies rows, order, severity and prose. No client-side trap filtering.
+      const rows = a.items.map((item) => {
+        const color = /^#[a-fA-F0-9]{6}$/.test(item.color) ? item.color : "#495465";
+        return `<li class="attention-row"><span class="attention-mark" style="color:${color}" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg></span><div><strong class="attention-name">${esc(item.name)}</strong><span class="attention-reason">${esc(item.reason_text)}</span></div></li>`;
+      }).join("");
+      const body = `<header><h2>${esc(a.title)}</h2><p class="attention-summary">${esc(a.summary)}</p></header><ul class="attention-items">${rows}</ul>`;
+      const path = internalPath(a.navigation_path) ? a.navigation_path : null;
+      this._attentionHTML(path ? `<a class="attention-content attention-link" href="${esc(path)}">${body}<span class="attention-open">\u00c5pne musefeller \u2192</span></a>` : `<div class="attention-content">${body}<p class="attention-hint">Velg adressen til fullvisningen under integrasjonens Tilsynsvisning.</p></div>`);
     }
     _tile(m, opened) {
       const p = m.p, id = m.a.trap_id;
@@ -160,15 +205,42 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
     }
   }
   class MousetrapManagerEditor extends HTMLElement {
-    setConfig() { this._render(); }
+    setConfig(config) { this._config = {...config}; this._render(); }
     set hass(hass) { this._hass = hass; this._render(); }
+    _change(mode, onlyAttention) {
+      const entry = attentionEntity(this._hass);
+      const entity = entry && entry[0];
+      const config = {...this._config, mode};
+      const current = config.visibility || [];
+      if (entity && Array.isArray(current)) {
+        const conditions = current.filter((c) => !isAttentionCondition(c,entity));
+        if (onlyAttention) conditions.push(attentionCondition(entity));
+        if (conditions.length) config.visibility = conditions;
+        else delete config.visibility;
+      }
+      this._config = config;
+      this.dispatchEvent(new CustomEvent("config-changed",{detail:{config},bubbles:true,composed:true}));
+      this._render();
+    }
     _render() {
       if (!this.shadowRoot) this.attachShadow({mode:"open"});
-      this.shadowRoot.innerHTML = '<p>Kortet viser alle aktive feller automatisk. Navn, plassering, illustrasjoner, verdier, sortering og terskler styres under <b>Innstillinger \u2192 Enheter og tjenester \u2192 Mousetrap Manager \u2192 Konfigurer</b>.</p><p>YAML: <code>type: custom:mousetrap-manager-card</code></p>';
+      const config = this._config || {};
+      const mode = config.mode || "full";
+      const entry = attentionEntity(this._hass);
+      const entity = entry && entry[0];
+      const onlyAttention = !!(entity && Array.isArray(config.visibility) && config.visibility.some((c) => isAttentionCondition(c,entity)));
+      const key = JSON.stringify([mode,entity,onlyAttention]);
+      if (this._editorKey === key) return;
+      this._editorKey = key;
+      this.shadowRoot.innerHTML = `<style>:host{display:block;font:inherit}label{display:block;margin:12px 0}select{display:block;font:inherit;padding:8px;margin-top:6px}input{margin-right:8px}p{line-height:1.5}code{overflow-wrap:anywhere}</style><p><b>Mousetrap Manager v${VERSION}</b></p><label>Visning<select><option value="full">Fullvisning</option><option value="attention">Tilsyn p\u00e5 startsiden</option></select></label><label><input type="checkbox"${onlyAttention ? " checked" : ""}${entity ? "" : " disabled"}>Vis bare n\u00e5r tilsyn er n\u00f8dvendig</label><p>Ved valg av Tilsyn settes betinget synlighet automatisk. Ukjent eller utilgjengelig tilsynsstatus forblir synlig. Andre synlighetsbetingelser beholdes.</p><p>Navn, \u00e5rsaker, terskler og adressen til fullvisningen styres under <b>Innstillinger \u2192 Enheter og tjenester \u2192 Mousetrap Manager \u2192 Konfigurer</b>.</p>${entity ? `<p>Tilsynsentitet: <code>${esc(entity)}</code></p>` : '<p>Tilsynsentiteten er ikke tilgjengelig. Oppdater og last integrasjonen for \u00e5 sette betinget synlighet.</p>'}`;
+      const select = this.shadowRoot.querySelector("select");
+      select.value = mode;
+      select.onchange = () => this._change(select.value,select.value === "attention");
+      this.shadowRoot.querySelector("input").onchange = (e) => this._change(mode,e.target.checked);
     }
   }
   if (!customElements.get(CARD_TAG)) customElements.define(CARD_TAG,MousetrapManagerCard);
   if (!customElements.get(EDITOR_TAG)) customElements.define(EDITOR_TAG,MousetrapManagerEditor);
   window.customCards = window.customCards || [];
-  window.customCards.push({type:CARD_TAG,name:"Mousetrap Manager",description:"Snap- og Victor-feller med felles oppsett i integrasjonen",preview:true});
+  window.customCards.push({type:CARD_TAG,name:"Mousetrap Manager",description:"Fullvisning eller kompakt tilsyn for snap- og Victor-feller",preview:true});
 })();

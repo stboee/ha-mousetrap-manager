@@ -60,3 +60,15 @@ Arbeidsmåte avklart etter første implementering: videre endringer kan gjøres 
 - Godkjent grafikk: tydelig frontfasong, store statusmarkeringer og stor tekst øverst. Ingen liten grå forklaring under fellen.
 - Gammel kontakt bygger på faktisk last_seen/last_report_date. Den skilles fra utilgjengelig kilde og utløser ikke automatisk Victor-reload alene. Konfigurerbare terskler og valgfrie HA-varsler, helt avslått som standard. Ingen mobilvarsling.
 - Tidligere lagring videreføres additivt med stabile felle-ID-er; Snap-historikk, ventende kontroll og vedlikehold beholdes.
+
+## Kompakt tilsynsvisning – 0.4.0
+
+- Brukeren har en startside i murverk med betingede alarmkort. Fullvisningen er for stor for denne siden. En kompakt visning i samme customkort er godkjent, med uttrykkelig startbeskjed.
+- Samme korttype, valget `mode: attention` for startsiden og `full` som standard. Ingen separat frontendinstallasjon. Fullvisningen ligger på en egen fane, gjerne Panel eller en bred seksjon.
+- Én automatisk opprettet binærsensor for tilsynsbehov. Ferdige rader, årsaker og prioritering beregnes i integrasjonen. Nye aktive feller følger med; arkiverte utelates.
+- Antall feller med tilsynsbehov er ikke en fangsttotal. Flere årsaker på samme felle gir én rad og én opptelling. Ingen nye fangst-/statistikksensorer.
+- Standardårsaker: Victor-fangst, snap-bevegelse, inspeksjon og kildefeil/ukjent Victor-status. Kontakt og batteri er egne valg, av som standard. Alle valg er uavhengige av varslingsinnstillingene.
+- Intern måladresse til fullvisningen konfigureres i integrasjonen. Den må velges av brukeren; ingen ukjent dashboardsti antas eller opprettes automatisk.
+- Korteditoren tilbyr full/tilsyn og betinget synlighet. Ved valg av tilsyn settes native HA-synlighet med den faktiske entitets-ID-en, uten å erstatte andre betingelser. Bare normal off skjuler kortet; unknown/unavailable skal være synlig.
+- Tilsynskortet inneholder navn og årsaker samt navigering. Ingen illustrasjoner, kvitteringsknapper eller journal i kompakt visning.
+- Versjonsnummer vises i editoren. Native HA-layout- og synlighetsvalg utløser ikke en misvisende advarsel om gamle kortvalg.

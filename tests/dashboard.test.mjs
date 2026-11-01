@@ -84,6 +84,12 @@ export default async function run(browser) {
     check("no legacy trap-type selector remains",editor.shadowRoot.querySelector("ha-form"),null);
     await Promise.all(qa("img.scene").map((img)=>{img.loading="eager";return img.decode();}));
     check("delivered illustrations load successfully",qa("img.scene").every((img)=>img.naturalWidth>0),true);
+    card.setConfig({type:"custom:mousetrap-manager-card",mode:"full",grid_options:{columns:"full"},visibility:[]});
+    check("native HA layout and visibility do not trigger legacy warning",q(".overview").textContent.includes("Visningsvalg styres"),false);
+    const savedSetup=hass.states["sensor.setup"];delete hass.states["sensor.setup"];update();
+    check("unavailable setup clears full trap view",qa(".tile").length,0);
+    hass.states["sensor.setup"]=savedSetup;update();
+    check("same full view returns after setup recovery",qa(".tile").length,2);
     card.remove();return out;
   });
   await page.close();

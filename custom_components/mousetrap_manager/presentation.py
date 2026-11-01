@@ -6,6 +6,7 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
+from .attention import attention_reasons
 from .const import DOMAIN
 from .ledger import instant
 
@@ -220,4 +221,18 @@ def presentation(manager, config, summary, now):
         "source_entities": sources,
         "last_sensor_contact": contact,
         "health": {"unavailable": unavailable, "old_contact": old, "stale_contact": stale, "low_battery": low},
+        "attention_reasons": attention_reasons(
+            manager.entry.options,
+            capture=victor and caught,
+            movement=not victor and bool(summary["pending_event_id"]),
+            inspection=summary["inspection_due"],
+            source_unavailable=unavailable,
+            source_unknown=victor and not known and not unavailable,
+            contact_overdue=old,
+            contact_stale=stale and not old,
+            contact_unknown=contact is None,
+            battery=low,
+        )
+        if not summary["archived"]
+        else [],
     }

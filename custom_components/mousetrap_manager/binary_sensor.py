@@ -9,11 +9,34 @@ from .entity import TrapEntity
 async def async_setup_entry(hass, entry, async_add_entities):
     manager = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
-        entity
-        for config in manager.traps
-        for entity in ([PendingCheck(manager, config["id"])] if config.get("type", "snap") == "snap" else [])
-        + [InspectionDue(manager, config["id"])]
+        [AttentionNeeded(manager)]
+        + [
+            entity
+            for config in manager.traps
+            for entity in ([PendingCheck(manager, config["id"])] if config.get("type", "snap") == "snap" else [])
+            + [InspectionDue(manager, config["id"])]
+        ]
     )
+
+
+class AttentionNeeded(TrapEntity, BinarySensorEntity):
+    """A live signal for dashboard visibility; no helper or manual trap list."""
+
+    _attr_name = "Tilsyn nødvendig"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:rodent"
+
+    def __init__(self, manager):
+        super().__init__(manager)
+        self._attr_unique_id = f"{DOMAIN}_{manager.entry.entry_id}_attention"
+
+    @property
+    def is_on(self):
+        return self.manager.attention()["count"] > 0
+
+    @property
+    def extra_state_attributes(self):
+        return {"mousetrap_manager_attention": True, **self.manager.attention()}
 
 
 class PendingCheck(TrapEntity, BinarySensorEntity):

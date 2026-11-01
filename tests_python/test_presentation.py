@@ -203,3 +203,100 @@ async def test_notifications_master_off_and_optional_health_notices(env):
         env.manager._sync_notifications()
         assert create.call_count == 1
         assert create.call_args.kwargs["notification_id"] == "mousetrap_manager_health_v"
+
+
+async def test_attention_combines_reasons_counts_traps_once_and_orders_by_priority(env):
+    from homeassistant.util import dt as dt_util
+
+    env.manager.entry.options["traps"].append({"id": "a", "name": "Loft", "device_id": "snap", "topic": "z2m/snap"})
+    await env.manager._change(lambda ledger: ledger.sync_traps(env.manager.traps, env.now.isoformat()))
+    await env.manager._change(lambda ledger: ledger.movement("a", env.now.isoformat()))
+    env.hass.states.async_set(env.sources["capture"], "on")
+    env.hass.states.async_set(env.sources["present"], 1)
+    before = env.manager.ledger.clone().data
+    view = env.manager.attention(dt_util.utcnow() + timedelta(days=8))
+    assert view["count"] == 2
+    assert view["summary"] == "2 feller trenger tilsyn"
+    assert [item["trap_id"] for item in view["items"]] == ["v", "a"]
+    assert [r["code"] for r in view["items"][0]["reasons"]] == ["capture", "inspection"]
+    assert view["items"][0]["reason_text"] == "Fangst meldt · Inspeksjon nødvendig"
+    assert env.manager.ledger.data == before
+    assert not env.manager.ledger.catches()
+
+
+async def test_attention_add_archive_and_acknowledge_update_live_without_manual_lists(env):
+    env.config["inspection_interval_days"] = 0
+    assert env.manager.attention(env.now)["count"] == 0
+    env.manager.entry.options["traps"].append({"id": "a", "name": "Loft", "topic": "z2m/a", "device_id": "snap"})
+    await env.manager._change(lambda ledger: ledger.sync_traps(env.manager.traps, env.now.isoformat()))
+    await env.manager._change(lambda ledger: ledger.movement("a", env.now.isoformat()))
+    assert env.manager.attention(env.now)["count"] == 1
+    event = env.manager.ledger.summary("a")["pending_event_id"]
+    await env.manager.async_acknowledge("a", event, False)
+    assert env.manager.attention(env.now)["count"] == 0
+    env.hass.states.async_set(env.sources["capture"], "on")
+    assert env.manager.attention(env.now)["count"] == 1
+    env.config["archived"] = True
+    await env.manager._change(lambda ledger: ledger.sync_traps(env.manager.traps, env.now.isoformat()))
+    assert env.manager.attention(env.now)["count"] == 0
+
+
+async def test_attention_health_is_configurable_and_independent_of_notifications(env):
+    env.config["inspection_interval_days"] = 0
+    env.hass.states.async_set(env.sources["battery"], 5)
+    assert env.manager.attention(env.now + timedelta(hours=80))["count"] == 0
+    env.manager.entry.options["attention"] = {"include_contact": True, "include_battery": True}
+    with patch("custom_components.mousetrap_manager.manager.persistent_notification.async_create") as create:
+        view = env.manager.attention(env.now + timedelta(hours=80))
+        env.manager._sync_notifications()
+        create.assert_not_called()
+    assert view["count"] == 1
+    assert [r["code"] for r in view["items"][0]["reasons"]] == ["contact_overdue", "battery"]
+    env.hass.states.async_set(env.sources["contact"], "unknown")
+    assert env.manager.attention(env.now)["items"][0]["reasons"][0]["code"] == "contact_unknown"
+    env.hass.states.async_set(env.sources["capture"], "on")
+    env.manager.entry.options["attention"].update(include_capture=False, include_contact=False, include_battery=False)
+    assert env.manager.attention(env.now)["count"] == 0
+
+
+async def test_attention_source_unknown_unavailable_and_inspection_do_not_clear_victor(env):
+    env.config["inspection_interval_days"] = 0
+    for entity_id in env.sources.values():
+        env.hass.states.async_set(entity_id, "unavailable")
+    assert env.manager.attention(env.now)["items"][0]["reasons"][0]["code"] == "source_unavailable"
+    env.hass.states.async_set(env.sources["battery"], 95)
+    assert env.manager.attention(env.now)["items"][0]["reasons"][0]["code"] == "source_unknown"
+    env.hass.states.async_set(env.sources["capture"], "on")
+    await env.manager.async_maintenance("v", "inspection_completed", "initial")
+    assert env.manager.attention(env.now)["items"][0]["reasons"][0]["code"] == "capture"
+    assert not env.manager.ledger.catches()
+    env.manager.entry.options["attention"] = {"include_capture": False, "include_source_problems": False}
+    assert env.manager.attention(env.now)["count"] == 0
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["https://example.com", "//example.com", "/\\\\example.com", "/bad path", "javascript:alert(1)", "/bad\npath"],
+)
+async def test_attention_options_reject_non_internal_paths(env, path):
+    flow = MousetrapOptionsFlow()
+    flow.hass, flow.handler, flow.flow_id = env.hass, env.target.entry_id, "attention-flow"
+    result = await flow.async_step_attention({"navigation_path": path})
+    assert result["errors"]["navigation_path"] == "invalid_navigation_path"
+
+
+async def test_attention_options_preserve_traps_and_recovery_config(env):
+    env.hass.config_entries.async_update_entry(
+        env.target, options={"traps": [env.config], "victor_recovery_enabled": True}
+    )
+    flow = MousetrapOptionsFlow()
+    flow.hass, flow.handler, flow.flow_id = env.hass, env.target.entry_id, "attention-flow"
+    form = await flow.async_step_attention()
+    values = form["data_schema"]({})
+    assert values["include_capture"] and values["include_movement"] and values["include_inspection"]
+    assert values["include_source_problems"] and not values["include_battery"] and not values["include_contact"]
+    result = await flow.async_step_attention({"navigation_path": "/dashboard-hjem/musefeller?view=full#top"})
+    assert result["type"] == "create_entry"
+    assert result["data"]["traps"] == [env.config]
+    assert result["data"]["victor_recovery_enabled"] is True
+    assert result["data"]["attention"]["navigation_path"].startswith("/dashboard-hjem/")

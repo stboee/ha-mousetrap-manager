@@ -22,7 +22,8 @@
           "undo": "Angre siste fangst",
           "victor_recovery": "Victor – automatic recovery",
           "add_victor": "Legg til Victor M1",
-          "display": "Felles kortoppsett og terskler"
+          "display": "Felles kortoppsett og terskler",
+          "attention": "Tilsynsvisning på startsiden"
         }
       },
       "add_trap": {
@@ -156,6 +157,20 @@
           "source_battery": "Valgfri kilde: Battery level",
           "source_signal": "Valgfri kilde: Wireless network RSSI"
         }
+      },
+      "attention": {
+        "title": "Tilsynsvisning på startsiden",
+        "description": "Velg hvilke forhold som gir tilsynsbehov. Dette gjelder den kompakte oversikten og er uavhengig av varsler. Alle aktive, registrerte feller tas med automatisk. Én felle telles én gang selv med flere årsaker. Batteri og kontakt bruker tersklene fra felles kortoppsett eller per-felle-overstyring. Måladressen er stien til din egen Musefeller-fane; tomt felt lar deg sette den senere.",
+        "data": {
+          "title": "Overskrift i tilsynskortet",
+          "navigation_path": "Adresse til fullvisningen (f.eks. /lovelace/musefeller)",
+          "include_capture": "Ta med meldt fangst fra Victor",
+          "include_movement": "Ta med bevegelse som må kontrolleres",
+          "include_inspection": "Ta med inspeksjonsfrist",
+          "include_source_problems": "Ta med utilgjengelig eller ukjent kildestatus",
+          "include_contact": "Ta med gammel eller ukjent sensorkontakt",
+          "include_battery": "Ta med lavt batteri"
+        }
       }
     },
     "error": {
@@ -167,7 +182,9 @@
       "invalid_interval": "Enter a whole number of days between 0 and 3650.",
       "invalid_victor_entry": "Choose an existing Victor Smart-Kill integration.",
       "invalid_recovery_number": "Enter a whole number within the range shown for this field.",
-      "invalid_thresholds": "Fristen uten sensorkontakt må være minst like lang som terskelen for gammel sensorkontakt, eller 0 for å slå av."
+      "invalid_thresholds": "Fristen uten sensorkontakt må være minst like lang som terskelen for gammel sensorkontakt, eller 0 for å slå av.",
+      "empty_title": "Skriv en overskrift.",
+      "invalid_navigation_path": "Bruk en intern HA-sti som begynner med én skråstrek, for eksempel /lovelace/musefeller. Feltet kan være tomt."
     },
     "abort": {
       "no_traps": "Ingen feller er registrert.",
