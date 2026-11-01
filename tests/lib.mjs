@@ -8,6 +8,7 @@ export const root = fileURLToPath(new URL("..", import.meta.url));
 export const cardPath = root + "custom_components/mousetrap_manager/frontend/mousetrap-manager-card.js";
 const server = createServer(async (req,res) => {
   let path = new URL(req.url, "http://localhost").pathname;
+  if (path === "/favicon.ico") { res.writeHead(204).end(); return; }
   if (path.startsWith("/mousetrap_manager/images/")) path = "/custom_components/mousetrap_manager/frontend/images/" + path.split("/").pop();
   const full = resolve(root, "." + path);
   if (!full.startsWith(resolve(root) + "/")) { res.writeHead(403).end(); return; }
