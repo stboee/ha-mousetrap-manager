@@ -14,6 +14,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_COOLDOWN, DOMAIN, SIGNAL_UPDATED, STORAGE_VERSION
 from .ledger import Ledger, LedgerError, instant
+from .victor_recovery import VictorRecovery
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class TrapManager:
         self._unsubscribers = []
         self._notified = {}
         self._stopping = False
+        self.victor_recovery = VictorRecovery(hass, entry)
 
     @property
     def traps(self):
@@ -92,9 +94,11 @@ class TrapManager:
             self.async_stop()
             raise
         self._sync_notifications()
+        await self.victor_recovery.async_start()
 
     def async_stop(self):
         self._stopping = True
+        self.victor_recovery.stop()
         for unsubscribe in self._unsubscribers:
             unsubscribe()
         self._unsubscribers.clear()
@@ -104,6 +108,7 @@ class TrapManager:
         # Finish the last durable transaction before another manager reads the same Store on reload.
         async with self._lock:
             pass
+        await self.victor_recovery.async_shutdown()
 
     async def _change(self, operation):
         async with self._lock:
@@ -166,6 +171,7 @@ class TrapManager:
             return
         async_dispatcher_send(self.hass, SIGNAL_UPDATED)
         self._sync_notifications()
+        self.victor_recovery.async_request_check()
 
     def _sync_notifications(self):
         for trap_id, trap in self.ledger.data["traps"].items():

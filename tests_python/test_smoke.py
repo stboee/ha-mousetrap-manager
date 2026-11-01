@@ -3,6 +3,7 @@
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from homeassistant import loader
 from homeassistant.config_entries import ConfigEntries, ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -10,7 +11,8 @@ from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.setup import async_setup_component
 
 
-async def test_native_setup_creates_entities_and_unloads(tmp_path):
+@pytest.mark.parametrize("recovery_enabled", [False, True])
+async def test_native_setup_creates_entities_and_unloads(tmp_path, recovery_enabled):
     (tmp_path / "custom_components").symlink_to(Path("custom_components").resolve(), target_is_directory=True)
     hass = HomeAssistant(str(tmp_path))
     loader.async_setup(hass)
@@ -27,7 +29,11 @@ async def test_native_setup_creates_entities_and_unloads(tmp_path):
         domain="mousetrap_manager",
         title="Mousetrap Manager",
         data={},
-        options={"traps": [{"id": "a", "name": "Loft", "device_id": "source", "topic": "zigbee2mqtt/Vibrasjon"}]},
+        options={
+            "traps": [{"id": "a", "name": "Loft", "device_id": "source", "topic": "zigbee2mqtt/Vibrasjon"}],
+            "victor_recovery_enabled": recovery_enabled,
+            "victor_entry_id": "existing-victor-entry",
+        },
         source="user",
         unique_id="mousetrap_manager",
         version=1,
@@ -55,6 +61,11 @@ async def test_native_setup_creates_entities_and_unloads(tmp_path):
             assert all(s.state == "unknown" and s.attributes["unit_of_measurement"] == "d" for s in ages)
             timestamps = [s for s in states if s.attributes.get("device_class") == "timestamp"]
             assert len(timestamps) == 4
+            recovery = hass.data["mousetrap_manager"][entry.entry_id].victor_recovery
+            diagnostic = [s for s in states if s.attributes.get("device_class") == "enum"]
+            assert len(diagnostic) == 1
+            assert diagnostic[0].state == ("starting" if recovery_enabled else "disabled")
             assert await hass.config_entries.async_unload(entry.entry_id)
+            assert recovery._stopped
     finally:
         await hass.async_stop()

@@ -137,3 +137,53 @@ async def test_inspection_and_bait_options_are_per_trap(env):
     assert config["show_bait_age"] is False
     assert config["inspection_notifications_enabled"] is True
     assert not result["data"]["notifications_enabled"]
+
+
+async def test_victor_recovery_is_opt_in_and_uses_existing_config_entry(env):
+    hass, entry, flow = env
+    hass.config_entries.async_get_entry = lambda entry_id: (
+        SimpleNamespace(domain="victorsmartkill") if entry_id == "victor" else None
+    )
+    form = await flow.async_step_victor_recovery()
+    defaults = form["data_schema"]({})
+    assert defaults["victor_recovery_enabled"] is False
+    assert defaults["victor_unavailable_minutes"] == 20
+    assert defaults["victor_reload_cooldown_minutes"] == 60
+    assert defaults["victor_reload_max_attempts"] == 3
+    result = await flow.async_step_victor_recovery(
+        {**defaults, "victor_recovery_enabled": True, "victor_entry_id": "victor"}
+    )
+    assert result["data"]["victor_entry_id"] == "victor"
+    assert result["data"]["traps"] == entry.options["traps"]
+
+
+async def test_victor_recovery_rejects_missing_or_unrelated_integration(env):
+    hass, entry, flow = env
+    hass.config_entries.async_get_entry = lambda _: SimpleNamespace(domain="mqtt")
+    for target_id in (None, "mqtt"):
+        result = await flow.async_step_victor_recovery({"victor_recovery_enabled": True, "victor_entry_id": target_id})
+        assert result["errors"]["victor_entry_id"] == "invalid_victor_entry"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("victor_unavailable_minutes", 0),
+        ("victor_reload_cooldown_minutes", 4),
+        ("victor_reload_max_attempts", 0),
+        ("victor_reload_max_attempts", 11),
+        ("victor_unavailable_minutes", 1.5),
+        ("victor_unavailable_minutes", "bad"),
+    ],
+)
+async def test_invalid_victor_recovery_settings_are_rejected(env, field, value):
+    hass, entry, flow = env
+    result = await flow.async_step_victor_recovery({"victor_recovery_enabled": False, field: value})
+    assert result["errors"][field] == "invalid_recovery_number"
+
+
+async def test_recovery_attempt_reset_is_explicit_and_not_saved_as_a_sticky_checkbox(env):
+    hass, entry, flow = env
+    result = await flow.async_step_victor_recovery({"victor_recovery_enabled": False, "reset_attempts": True})
+    assert len(result["data"]["victor_recovery_reset_token"]) == 32
+    assert "reset_attempts" not in result["data"]

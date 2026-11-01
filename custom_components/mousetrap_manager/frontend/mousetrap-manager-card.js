@@ -6,7 +6,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "0.2.0";
+  const VERSION = "0.2.1";
   const CARD_TAG = "mousetrap-manager-card";
   const EDITOR_TAG = "mousetrap-manager-card-editor";
 

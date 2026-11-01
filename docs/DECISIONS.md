@@ -36,3 +36,13 @@ Arbeidsmåte avklart etter første implementering: videre endringer kan gjøres 
 - Varsler: hovedbryter for full deaktivering, eget valg for bevegelse, og inspeksjonsvarsler per felle. Nye inspeksjonsvarsler er av som standard. Ingen mobilvarsling.
 - Siste sensorkontakt må bygge på Zigbee2MQTT `last_seen`. MQTT-mottak, HA-oppdatering eller restart må ikke oppfattes som ny Zigbee-kontakt. Retained-rapport kan gjenopprette sitt faktiske kontakttidspunkt, men ikke utløse kontroll.
 - Eksisterende v1-lagring oppgraderes additivt med samme felle-ID-er, hendelser, fangster og ventende kontroll. Tidligere kvitteringer beholder sin faktiske inspeksjonstid.
+
+## Victor-gjenoppretting – 0.2.1
+
+- Brukeren har bedt om et valgfritt automatisk reload når den eksisterende Victor-integrasjonen har vært utilgjengelig en stund.
+- Aktivering, valgt Victor-konfigurasjonsoppføring, ventetid, minste intervall og forsøksgrense styres i Mousetrap Manager. Standard: av, 20 minutters venting, 60 minutter mellom forsøk og 3 forsøk per feilperiode.
+- Overvåk den eksisterende oppføringens HA-entiteter. Ingen ny API-klient, innlogging eller kopi av Victor-entitetene opprettes.
+- All observert entitetsstatus må være utilgjengelig for en lastet oppføring; én felle med gammel rapportering utløser ikke reload av en ellers fungerende konto.
+- Oppstart, pågående inn-/utlasting, ny innlogging, HAs egne setup-retry-forsøk og manuell deaktivering respekteres. Oppstart medfører ny observasjonstid.
+- Antall forsøk og siste reload-tidspunkt lagres før handlingen. Gyldig gjenoppretting nullstiller antall forsøk, mens sperretiden beholdes. Manuell nullstilling av forsøksantall finnes i konfigurasjonen.
+- Diagnostikkstatus og HA-logg viser handlingene. Ingen nye varsler eller mobilvarsler legges til.

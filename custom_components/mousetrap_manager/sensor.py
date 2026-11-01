@@ -4,14 +4,16 @@ from datetime import datetime
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import UnitOfTime
+from homeassistant.helpers.entity import EntityCategory
 
 from .const import DOMAIN
 from .entity import TrapEntity
+from .victor_recovery import RECOVERY_STATES
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     manager = hass.data[DOMAIN][entry.entry_id]
-    entities = [CatchCount(manager)]
+    entities = [CatchCount(manager), VictorRecoveryStatus(manager)]
     for config in manager.traps:
         entities.extend([CatchCount(manager, config["id"]), TrapStatus(manager, config)])
         entities.extend(MaintenanceSensor(manager, config["id"], key) for key in MAINTENANCE_SENSORS)
@@ -35,6 +37,26 @@ class CatchCount(TrapEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         return {"mousetrap_manager_total": True} if self.trap_id is None else None
+
+
+class VictorRecoveryStatus(TrapEntity, SensorEntity):
+    _attr_translation_key = "victor_recovery"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = RECOVERY_STATES
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:restart-alert"
+
+    def __init__(self, manager):
+        super().__init__(manager)
+        self._attr_unique_id = f"{DOMAIN}_{manager.entry.entry_id}_victor_recovery"
+
+    @property
+    def native_value(self):
+        return self.manager.victor_recovery.status
+
+    @property
+    def extra_state_attributes(self):
+        return self.manager.victor_recovery.attributes
 
 
 class TrapStatus(TrapEntity, SensorEntity):

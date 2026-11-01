@@ -19,7 +19,8 @@
           "add_trap": "Legg til felle",
           "edit_trap": "Rediger eller arkiver felle",
           "settings": "Innstillinger og varsler",
-          "undo": "Angre siste fangst"
+          "undo": "Angre siste fangst",
+          "victor_recovery": "Victor – automatisk gjenoppretting"
         }
       },
       "add_trap": {
@@ -75,6 +76,18 @@
         "data": {
           "confirm": "Ja, angre denne fangstregistreringen"
         }
+      },
+      "victor_recovery": {
+        "title": "Victor – automatisk gjenoppretting",
+        "description": "Valgfri reload av den valgte, eksisterende Victor-integrasjonen ved vedvarende utilgjengelighet. Standard: vent 20 minutter, minst 60 minutter mellom forsøk, maksimalt 3 forsøk per feilperiode. Oppstart, HAs egne oppstartsforsøk og ny innlogging respekteres. Én gammel eller utilgjengelig felle alene laster ikke en fungerende konto på nytt. Antall forsøk kan nullstilles manuelt; sperretiden beholdes.",
+        "data": {
+          "victor_recovery_enabled": "Aktiver automatisk gjenoppretting",
+          "victor_entry_id": "Victor-integrasjon",
+          "victor_unavailable_minutes": "Utilgjengelig i (minutter, 1–1440)",
+          "victor_reload_cooldown_minutes": "Minst minutter mellom reload (5–1440)",
+          "victor_reload_max_attempts": "Maksimalt antall forsøk per feilperiode (1–10)",
+          "reset_attempts": "Nullstill lagret antall forsøk"
+        }
       }
     },
     "error": {
@@ -83,7 +96,9 @@
       "unknown_device": "Enheten finnes ikke.",
       "already_registered": "Sensoren eller MQTT-topic er allerede registrert. Rediger den eksisterende fellen.",
       "confirmation_required": "Bekreft for å angre denne registreringen.",
-      "invalid_interval": "Skriv et helt antall dager mellom 0 og 3650."
+      "invalid_interval": "Skriv et helt antall dager mellom 0 og 3650.",
+      "invalid_victor_entry": "Velg en eksisterende Victor Smart-Kill-integrasjon.",
+      "invalid_recovery_number": "Skriv et helt tall innenfor intervallet som er angitt for feltet."
     },
     "abort": {
       "no_traps": "Ingen feller er registrert.",
@@ -91,6 +106,27 @@
       "not_loaded": "Integrasjonen er ikke lastet. Kontroller oppsettet og prøv igjen.",
       "capture_changed": "Siste fangst er endret. Åpne angring på nytt.",
       "capture_undone": "Fangsten er annullert. Tellerne og hendelsesloggen er oppdatert."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "victor_recovery": {
+        "name": "Victor automatisk gjenoppretting",
+        "state": {
+          "disabled": "Avslått",
+          "starting": "Venter på gyldig status",
+          "monitoring": "Overvåker",
+          "waiting": "Venter før reload",
+          "cooldown": "Sperretid mellom forsøk",
+          "reloading": "Laster Victor på nytt",
+          "limit_reached": "Forsøksgrensen er nådd",
+          "auth_required": "Krever ny innlogging",
+          "setup_retry": "Home Assistant prøver oppstart på nytt",
+          "not_loaded": "Ikke lastet eller deaktivert",
+          "not_found": "Victor-integrasjonen finnes ikke",
+          "storage_error": "Stoppet på grunn av lagringsfeil"
+        }
+      }
     }
   }
 }

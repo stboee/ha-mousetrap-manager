@@ -2,7 +2,7 @@
 
 Videreutvikling av [Rodent Trap Card](https://github.com/kedube/ha-rodent-traps), med en Home Assistant-integrasjon som holder et felles, varig register over musefeller.
 
-**Utviklingsversjon: 0.2.0. Målplattform: Home Assistant 2026.10.4.** Testet programvare er ikke det samme som verifisert drift på en fysisk felle; se testplanen nedenfor før ordinær bruk.
+**Utviklingsversjon: 0.2.1. Målplattform: Home Assistant 2026.10.4.** Testet programvare er ikke det samme som verifisert drift på en fysisk felle; se testplanen nedenfor før ordinær bruk.
 
 ## Arbeidsflyt
 
@@ -45,15 +45,15 @@ Ikke bare kopier Python-filene: `frontend`, `translations`, `manifest.json` og `
 4. Velg Aqara-sensorens MQTT-enhet, et fellenavn og nøyaktig MQTT-topic. For den første kjente sensoren er topic `zigbee2mqtt/Vibrasjon`.
 5. Legg til denne dashboardressursen som **JavaScript-modul** under Innstillinger → Dashboards → Ressurser (avansert modus kan være nødvendig):
 
-`/mousetrap_manager/mousetrap-manager-card.js?v=0.2.0`
+`/mousetrap_manager/mousetrap-manager-card.js?v=0.2.1`
 
 6. Last nettleseren/Companion-appen på nytt og legg til **Mousetrap Manager Card**. Kortvelgeren foreslår registrerte feller automatisk når kortet opprettes. Etter registrering av flere feller kan du velge deres statusentiteter i kortets visuelle editor.
 
 Ingen ekstra hjelpere per felle trengs. `hacs.json` beskriver integrasjonen; kortet følger integrasjonspakken.
 
-### Oppgradering fra 0.1.0
+### Oppgradering fra 0.1.0 eller 0.2.0
 
-Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=0.2.0` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Åtebyttehistorikk og sensorkontakt blir stående som ukjent til de registreres.
+Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=0.2.1` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Åtebyttehistorikk og sensorkontakt blir stående som ukjent til de registreres.
 
 ## Kort
 
@@ -120,6 +120,25 @@ Se [Zigbee2MQTTs innstillinger](https://www.zigbee2mqtt.io/guide/configuration/a
 
 Siste sensorkontakt og siste bevegelse er forskjellige opplysninger. Kontakttidspunktet beviser heller ikke at fellen er mekanisk armert. Det settes ingen ny, vilkårlig frist for frakobling av en sovende batterisensor.
 
+## Victor – automatisk gjenoppretting
+
+Dette er et valgfritt tillegg for en **eksisterende Victor Smart-Kill-integrasjon**. Det oppretter ingen ny Victor-tilkobling og krever ingen ekstra innlogging. Funksjonen er avslått som standard og kjører på HA-serveren uten åpent dashboard.
+
+Åpne **Mousetrap Manager → Konfigurer → Victor – automatisk gjenoppretting**:
+
+1. Velg den eksisterende Victor-integrasjonen/kontoen og aktiver funksjonen.
+2. Velg hvor lenge den skal være sammenhengende utilgjengelig før reload. Standard er **20 minutter**, område 1–1440 minutter.
+3. Velg minste tid mellom reload-forsøk. Standard er **60 minutter**, område 5–1440 minutter.
+4. Velg maksimalt antall forsøk per feilperiode. Standard er **3**, område 1–10.
+
+Kontrollen ser på entitetene som faktisk tilhører den valgte Victor-oppføringen i HAs entitetsregister. En lastet oppføring må ha observerte, aktive entiteter som alle er `unavailable`. En kjent fungerende entitet gjør at oppføringen regnes som tilgjengelig. Én utilgjengelig felle eller gammelt `last_report_date` alene utløser derfor ikke reload. `unknown`, manglende entiteter og gjenopprettede plassholdere er ikke tilstrekkelig bevis på en feil. En oppføring med status `setup_error` kan også forsøkes gjenopprettet etter ventetiden.
+
+Ved ny innlogging, deaktivering, manuell utlasting, pågående oppstart/utlasting eller HAs egne `setup_retry`-forsøk griper funksjonen ikke inn. Etter HA-oppstart begynner observasjonstiden på nytt. Forsøksantall og tidspunkt for siste forsøk lagres før reload og bevares ved restart, slik at restart eller endring av andre innstillinger ikke omgår forsøksgrensen eller sperretiden.
+
+En faktisk tilgjengelig entitet nullstiller forsøksantallet for feilperioden; sperretiden siden siste reload beholdes. Hvis forsøksgrensen er nådd mens feilen fortsetter, stopper automatiske reload-forsøk. Du kan velge **Nullstill lagret antall forsøk** i samme skjema for en ny forsøksrunde. Dette nullstiller ikke sperretiden. En pågående reload får fullføre dersom Mousetrap Manager lastes om eller funksjonen deaktiveres.
+
+Diagnostikkentiteten **Victor automatisk gjenoppretting** viser status, antall forsøk, siste forsøk og resultat. Faktiske reload-forsøk og feil skrives også i HA-loggen. Ingen mobilvarsler eller nye HA-varsler opprettes av denne funksjonen. Reload kan hjelpe en hengende forbindelse; et pågående eksternt driftsavbrudd eller ugyldig innlogging må fortsatt løses ved kilden.
+
 ## Lagring, historikk og statistikk
 
 Integrasjonen skriver registeret gjennom Home Assistants `Store` til `.storage/mousetrap_manager.<entry-id>`. Lagret kontrollstatus, sperretid, fangster og annulleringer leses før entitetene opprettes. Integrasjonen kjører uten åpne dashboards. Alle skjermer leser samme HA-entiteter.
@@ -167,6 +186,7 @@ Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Originalens test
 8. Registrer åtebytte med kontroll ventende: åtealder blir 0, kontrollen står fortsatt. Kvitter falsk alarm etter klargjøring: siste inspeksjon oppdateres, fangstteller står.
 9. Sett et passende inspeksjonsintervall. Kontroller neste frist og at gjennomført inspeksjon flytter den. Kontroller at valgfritt inspeksjonsvarsel kan brukes med bevegelsesvarsler avslått.
 10. Aktiver `last_seen` i Zigbee2MQTT. Kontroller at kortet viser kontaktalder, og at restart uten ny Zigbee-kontakt ikke gjør tidspunktet nytt.
+11. For valgfri Victor-gjenoppretting: kontroller valgt konto, terskler og diagnostikkstatus. Bekreft ved neste reelle feil at korte avbrudd får rette seg selv, og at bare valgt Victor-oppføring lastes på nytt etter terskelen.
 
 ## Opphav og lisens
 

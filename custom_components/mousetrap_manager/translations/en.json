@@ -19,7 +19,8 @@
           "add_trap": "Legg til felle",
           "edit_trap": "Rediger eller arkiver felle",
           "settings": "Innstillinger og varsler",
-          "undo": "Angre siste fangst"
+          "undo": "Angre siste fangst",
+          "victor_recovery": "Victor – automatic recovery"
         }
       },
       "add_trap": {
@@ -75,6 +76,18 @@
         "data": {
           "confirm": "Ja, angre denne fangstregistreringen"
         }
+      },
+      "victor_recovery": {
+        "title": "Victor – automatic recovery",
+        "description": "Optional reload of the selected existing Victor integration after sustained unavailability. Defaults: wait 20 minutes, at least 60 minutes between attempts, maximum 3 attempts per outage. HA startup/retry and reauthentication are respected. One stale or unavailable trap alone does not reload a healthy account. Reset attempts manually if needed; the cooldown remains.",
+        "data": {
+          "victor_recovery_enabled": "Enable automatic recovery",
+          "victor_entry_id": "Victor integration",
+          "victor_unavailable_minutes": "Unavailable for (minutes, 1–1440)",
+          "victor_reload_cooldown_minutes": "Minimum minutes between reloads (5–1440)",
+          "victor_reload_max_attempts": "Maximum attempts per outage (1–10)",
+          "reset_attempts": "Reset saved attempt count"
+        }
       }
     },
     "error": {
@@ -83,7 +96,9 @@
       "unknown_device": "Enheten finnes ikke.",
       "already_registered": "Sensoren eller MQTT-topic er allerede registrert. Rediger den eksisterende fellen.",
       "confirmation_required": "Bekreft for å angre denne registreringen.",
-      "invalid_interval": "Enter a whole number of days between 0 and 3650."
+      "invalid_interval": "Enter a whole number of days between 0 and 3650.",
+      "invalid_victor_entry": "Choose an existing Victor Smart-Kill integration.",
+      "invalid_recovery_number": "Enter a whole number within the range shown for this field."
     },
     "abort": {
       "no_traps": "Ingen feller er registrert.",
@@ -91,6 +106,27 @@
       "not_loaded": "Integrasjonen er ikke lastet. Kontroller oppsettet og prøv igjen.",
       "capture_changed": "Siste fangst er endret. Åpne angring på nytt.",
       "capture_undone": "Fangsten er annullert. Tellerne og hendelsesloggen er oppdatert."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "victor_recovery": {
+        "name": "Victor automatic recovery",
+        "state": {
+          "disabled": "Disabled",
+          "starting": "Waiting for valid status",
+          "monitoring": "Monitoring",
+          "waiting": "Waiting before reload",
+          "cooldown": "Waiting between reload attempts",
+          "reloading": "Reloading Victor",
+          "limit_reached": "Attempt limit reached",
+          "auth_required": "Reauthentication required",
+          "setup_retry": "Home Assistant is retrying setup",
+          "not_loaded": "Not loaded or disabled",
+          "not_found": "Victor integration not found",
+          "storage_error": "Paused due to storage error"
+        }
+      }
     }
   }
 }

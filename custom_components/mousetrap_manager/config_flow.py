@@ -11,6 +11,7 @@ from homeassistant.helpers import selector
 
 from .const import DEFAULT_COOLDOWN, DOMAIN
 from .ledger import LedgerError
+from .victor_recovery import RECOVERY_DEFAULTS
 
 
 def valid_topic(topic):
@@ -52,7 +53,54 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
         return self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
 
     async def async_step_init(self, user_input=None):
-        return self.async_show_menu(step_id="init", menu_options=["add_trap", "edit_trap", "settings", "undo"])
+        return self.async_show_menu(
+            step_id="init", menu_options=["add_trap", "edit_trap", "settings", "victor_recovery", "undo"]
+        )
+
+    async def async_step_victor_recovery(self, user_input=None):
+        options = self._options()
+        values = {**RECOVERY_DEFAULTS, **options}
+        errors = {}
+        if user_input is not None:
+            values.update(user_input)
+            target_id = values.get("victor_entry_id")
+            target = self.hass.config_entries.async_get_entry(target_id) if target_id else None
+            if values["victor_recovery_enabled"] and (target is None or target.domain != "victorsmartkill"):
+                errors["victor_entry_id"] = "invalid_victor_entry"
+            for key, low, high in (
+                ("victor_unavailable_minutes", 1, 1440),
+                ("victor_reload_cooldown_minutes", 5, 1440),
+                ("victor_reload_max_attempts", 1, 10),
+            ):
+                try:
+                    value = values[key]
+                    if isinstance(value, bool) or int(value) != float(value) or not low <= int(value) <= high:
+                        raise ValueError
+                    values[key] = int(value)
+                except ValueError, TypeError, OverflowError:
+                    errors[key] = "invalid_recovery_number"
+            if not errors:
+                options.update({key: values[key] for key in RECOVERY_DEFAULTS})
+                if target_id:
+                    options["victor_entry_id"] = target_id
+                if values.get("reset_attempts"):
+                    options["victor_recovery_reset_token"] = uuid4().hex
+                return self.async_create_entry(title="", data=options)
+        schema = {vol.Required("victor_recovery_enabled", default=values["victor_recovery_enabled"]): bool}
+        selected = values.get("victor_entry_id")
+        schema[vol.Optional("victor_entry_id", **({"default": selected} if selected else {}))] = (
+            selector.ConfigEntrySelector(selector.ConfigEntrySelectorConfig(integration="victorsmartkill"))
+        )
+        for key, low, high in (
+            ("victor_unavailable_minutes", 1, 1440),
+            ("victor_reload_cooldown_minutes", 5, 1440),
+            ("victor_reload_max_attempts", 1, 10),
+        ):
+            schema[vol.Required(key, default=values[key])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=low, max=high, step=1, mode=selector.NumberSelectorMode.BOX)
+            )
+        schema[vol.Required("reset_attempts", default=False)] = bool
+        return self.async_show_form(step_id="victor_recovery", data_schema=vol.Schema(schema), errors=errors)
 
     async def async_step_add_trap(self, user_input=None):
         return await self._trap_form("add_trap", user_input)

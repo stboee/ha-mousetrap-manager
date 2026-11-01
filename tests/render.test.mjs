@@ -76,8 +76,10 @@ export default async function run(browser) {
     const out = {};
     const scene = c.q("svg.scene");
     const battery = c.q(".m-battery");
-    await sleep(250);
     const peek = anim(c.q(".mouse"), "peek");
+    // Start the elapsed-time check after the browser actually starts the animation.
+    await peek.ready;
+    await sleep(250);
     c.push("sensor.t_seen", iso());
     out.checkIn = {
       scene: c.q("svg.scene") === scene, battery: c.q(".m-battery") === battery,
@@ -88,6 +90,7 @@ export default async function run(browser) {
     const svg = c.q("svg.scene");
     const word = c.q(".snap-text");
     const pop = anim(word, "pop");
+    await pop.ready;
     await sleep(300);
     c.push("sensor.t_strikes", 8);
     const strikes = c.q(".m-strikes");

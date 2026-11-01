@@ -65,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
-        manager.async_stop()
+        await manager.async_shutdown()
         hass.data[DOMAIN].pop(entry.entry_id, None)
         raise
     entry.async_on_unload(entry.add_update_listener(async_options_updated))
