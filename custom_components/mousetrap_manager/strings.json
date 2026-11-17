@@ -43,7 +43,8 @@
           "metrics": "Verdier som vises",
           "battery_low": "Lavt batteri ved eller under (%)",
           "stale_after_hours": "Gammel sensorkontakt etter (timer, 0 slår av)",
-          "offline_after_hours": "Frist uten sensorkontakt (timer, 0 slår av)"
+          "offline_after_hours": "Frist uten sensorkontakt (timer, 0 slår av)",
+          "snap_graphic": "Felleillustrasjon"
         }
       },
       "edit_trap": {
@@ -77,7 +78,8 @@
           "source_last_catch": "Valgfri kilde: Last kill date",
           "source_contact": "Valgfri kilde: Last report date",
           "source_battery": "Valgfri kilde: Battery level",
-          "source_signal": "Valgfri kilde: Wireless network RSSI"
+          "source_signal": "Valgfri kilde: Wireless network RSSI",
+          "snap_graphic": "Felleillustrasjon"
         }
       },
       "settings": {
@@ -184,7 +186,8 @@
       "invalid_recovery_number": "Skriv et helt tall innenfor intervallet som er angitt for feltet.",
       "invalid_thresholds": "Fristen uten sensorkontakt må være minst like lang som terskelen for gammel sensorkontakt, eller 0 for å slå av.",
       "empty_title": "Skriv en overskrift.",
-      "invalid_navigation_path": "Bruk en intern HA-sti som begynner med én skråstrek, for eksempel /lovelace/musefeller. Feltet kan være tomt."
+      "invalid_navigation_path": "Bruk en intern HA-sti som begynner med én skråstrek, for eksempel /lovelace/musefeller. Feltet kan være tomt.",
+      "invalid_snap_graphic": "Velg Klassisk klappfelle, Rapp 2 eller Biltema Giljotin."
     },
     "abort": {
       "no_traps": "Ingen feller er registrert.",

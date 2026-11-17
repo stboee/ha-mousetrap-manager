@@ -10,7 +10,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 
 from .attention import ATTENTION_DEFAULTS, attention_settings, valid_navigation_path
-from .const import DEFAULT_COOLDOWN, DOMAIN
+from .const import DEFAULT_COOLDOWN, DOMAIN, SNAP_GRAPHICS
 from .ledger import LedgerError
 from .presentation import DISPLAY_DEFAULTS, METRIC_LABELS, SOURCE_SUFFIXES, display_settings
 from .victor_recovery import RECOVERY_DEFAULTS
@@ -241,6 +241,10 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
                 errors["name"] = "empty_name"
             if kind == "snap" and not valid_topic(user_input.get("topic")):
                 errors["topic"] = "invalid_topic"
+            if kind == "snap":
+                graphic = user_input.get("snap_graphic", existing.get("snap_graphic", "classic"))
+                if not isinstance(graphic, str) or graphic not in SNAP_GRAPHICS:
+                    errors["snap_graphic"] = "invalid_snap_graphic"
             device = dr.async_get(self.hass).async_get(user_input["device_id"])
             if device is None:
                 errors["device_id"] = "unknown_device"
@@ -287,6 +291,14 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
         }
         if kind == "snap":
             schema[vol.Required("topic", default=existing.get("topic", "zigbee2mqtt/Vibrasjon"))] = str
+            schema[vol.Required("snap_graphic", default=existing.get("snap_graphic", "classic"))] = (
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[{"value": key, "label": value[0]} for key, value in SNAP_GRAPHICS.items()],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            )
         schema.update(
             {
                 vol.Required("show_bait_age", default=existing.get("show_bait_age", True)): bool,

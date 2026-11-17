@@ -91,6 +91,7 @@ def model(env, offset=0):
 
 async def test_native_victor_values_are_references_not_imported_catches(env):
     p = model(env)
+    assert p["graphic"] == "victor-m1"
     assert p["label"] == "Ingen fangst meldt"
     assert p["location"] == "Uthus"
     assert next(m for m in p["metrics"] if m["key"] == "catches") == {

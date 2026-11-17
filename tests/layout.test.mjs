@@ -15,7 +15,7 @@ export default async function run(browser){
    const label=`${width}px ${dark?'dark':'light'}`;
    check(`${label} has no page overflow`,view.overflow,false);
    check(`${label} has no tile overflow`,view.overflowTiles,false);
-   check(`${label} displays six traps`,view.tiles,6);
+   check(`${label} displays eight traps`,view.tiles,8);
    check(`${label} images load`,view.loaded,true);
    check(`${label} has distinct source outage`,view.status[5],'Utilgjengelig');
    check(`${label} respects reduced motion`,view.animations.every(a=>a==='none'),true);

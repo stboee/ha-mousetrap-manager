@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180" width="1080" height="540"
+  role="img" aria-labelledby="title">
+  <title id="title">Biltema Giljotin – Overvåking aktiv</title>
+  <defs>
+  <linearGradient id="rapp-side" x2=".2" y2="1">
+    <stop stop-color="#544b48"/><stop offset="1" stop-color="#29272a"/>
+  </linearGradient>
+  <linearGradient id="rapp-top" x2=".4" y2="1">
+    <stop stop-color="#6e6d68"/><stop offset="1" stop-color="#373a38"/>
+  </linearGradient>
+  <linearGradient id="ivory" x2="1" y2=".4">
+    <stop stop-color="#f1f0e5"/><stop offset=".6" stop-color="#dedfd4"/>
+    <stop offset="1" stop-color="#c8cbc2"/>
+  </linearGradient>
+  <linearGradient id="metal" x2=".7" y2="1">
+    <stop stop-color="#68737b"/><stop offset=".35" stop-color="#eef1ec"/>
+    <stop offset=".55" stop-color="#a5aaa7"/><stop offset=".8" stop-color="#fafbf6"/>
+    <stop offset="1" stop-color="#737d83"/>
+  </linearGradient>
+  <filter id="muted" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/></filter>
+</defs>
+  <ellipse cx="168" cy="167" rx="146" ry="5" fill="#246c47" opacity=".13"/>
+  <g stroke-linejoin="round" stroke-linecap="round">
+  <path d="m24 128 91 30 190-43v8l-190 44-91-31Z" fill="#343e48" stroke="#6d7982"/>
+  <path d="m33 124 87 27 176-42-82-23Z" fill="#4d5861" stroke="#7e898e"/>
+  <path d="m44 119 72 23 33-8-73-23Z" fill="#1b252d"/>
+  <path d="m54 118 59 18m-42-23 59 18m-42-23 59 18" stroke="#788282" stroke-width="3"/>
+  <path d="m118 66 162-37 13 8v76l-175 40Z" fill="url(#ivory)" stroke="#969f9b" stroke-width="1.5"/>
+  <path d="m118 66 162-37 13 8-162 39Z" fill="#f8f7ee" stroke="#c8cbc2"/>
+  <path d="m155 78v49" stroke="#b8bcb5" stroke-width="8" stroke-linecap="round"/><path d="m156 79v47" stroke="#4c5658" stroke-width="4.5" stroke-linecap="round"/><path d="m177 71v48" stroke="#b8bcb5" stroke-width="8" stroke-linecap="round"/><path d="m178 72v46" stroke="#4c5658" stroke-width="4.5" stroke-linecap="round"/><path d="m199 64v47" stroke="#b8bcb5" stroke-width="8" stroke-linecap="round"/><path d="m200 65v45" stroke="#4c5658" stroke-width="4.5" stroke-linecap="round"/><path d="m221 57v46" stroke="#b8bcb5" stroke-width="8" stroke-linecap="round"/><path d="m222 58v44" stroke="#4c5658" stroke-width="4.5" stroke-linecap="round"/><path d="m243 50v45" stroke="#b8bcb5" stroke-width="8" stroke-linecap="round"/><path d="m244 51v43" stroke="#4c5658" stroke-width="4.5" stroke-linecap="round"/><path d="m265 43v44" stroke="#b8bcb5" stroke-width="8" stroke-linecap="round"/><path d="m266 44v42" stroke="#4c5658" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="m37 62 13 3 1 60-14-5Z" fill="#ececdf" stroke="#a4aba6" stroke-width="1.3"/>
+  <path d="m30 67 7-5v58l-7 6Z" fill="#c2c7bf" stroke="#a4aba6"/>
+  <path d="m49 77 64 17v44l-64-20Z" fill="#202a31"/>
+  <path d="m48 76 61 17v13L48 89Z" fill="#3b454d" stroke="#7d8990"/>
+  <path d="m36 70 79 21 1 9-80-22Z" fill="#f6f5e9" stroke="#b2b9b0"/>
+  <path d="m109 84 12-9 12 2v76l-17 4-7-5Z" fill="#eaeadd" stroke="#a6aea6" stroke-width="1.4"/>
+  <path d="m121 80 11-3v75l-11 3" fill="#f7f5e9"/>
+  <path d="m48 128 65 20" stroke="#c6cdc2" stroke-width="2"/>
+  <path d="m84 90 102-51" fill="none" stroke="#6e787a" stroke-width="5"/>
+  <path d="m84 89 102-51" fill="none" stroke="url(#metal)" stroke-width="3"/>
+  <path d="m68 70 89-49q7-4 13 0l12 7-100 51Z" fill="#414c56" stroke="#7c8791" stroke-width="1.5"/>
+  <path d="m177 63 6-39q2-10 9-12l22-6q19-4 22 11l7 27"
+    fill="none" stroke="#68716f" stroke-width="5"/>
+  <path d="m177 62 6-38q2-10 9-12l22-6q19-4 22 11l7 27"
+    fill="none" stroke="url(#metal)" stroke-width="3"/>
+  <ellipse cx="212" cy="33" rx="18" ry="29" transform="rotate(22 212 33)"
+    fill="none" stroke="#5d6768" stroke-width="5"/>
+  <ellipse cx="212" cy="32" rx="18" ry="29" transform="rotate(22 212 32)"
+    fill="none" stroke="url(#metal)" stroke-width="3"/>
+  <path d="m163 56 5-24 12-3 4 21" fill="#414b54" stroke="#707c84"/>
+  <path d="m161 60 18-5 6 4v9l-17 5-7-4Z" fill="#414b54" stroke="#818d91"/>
+  <path d="m87 93 14 4-2 7-14-4Z" fill="#3c4650" stroke="#7c8990"/>
+</g>
+  <g transform="translate(326 34)" stroke-linejoin="round" stroke-linecap="round">
+    <circle r="29" fill="white"/><circle r="26" fill="#246c47"/>
+    <path d="m-11 0 7 7 15-16" fill="none" stroke="white" stroke-width="4.5"/>
+  </g>
+</svg>

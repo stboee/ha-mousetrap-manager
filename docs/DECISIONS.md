@@ -72,3 +72,10 @@ Arbeidsmåte avklart etter første implementering: videre endringer kan gjøres 
 - Korteditoren tilbyr full/tilsyn og betinget synlighet. Ved valg av tilsyn settes native HA-synlighet med den faktiske entitets-ID-en, uten å erstatte andre betingelser. Bare normal off skjuler kortet; unknown/unavailable skal være synlig.
 - Tilsynskortet inneholder navn og årsaker samt navigering. Ingen illustrasjoner, kvitteringsknapper eller journal i kompakt visning.
 - Versjonsnummer vises i editoren. Native HA-layout- og synlighetsvalg utløser ikke en misvisende advarsel om gamle kortvalg.
+
+## Felleillustrasjoner 0.5.0
+
+- Klappfeller har et separat `snap_graphic`-valg i integrasjonens per-felle-oppsett: `classic`, `rapp_2` eller `biltema_giljotin`. Manglende eller ukjent verdi bruker klassisk illustrasjon.
+- Illustrasjonen endrer verken kildetype, trap-ID, registerdata, tellere eller kontrollhandlinger. Ingen migrering eller ny registrering kreves. Victor beholder M1-grafikken.
+- Integrasjonen publiserer et kjent bildeprefiks i presentasjonsmodellen. Kortet godtar bare medfølgende prefikser og scener, og beholder gammel standard for eldre presentasjonsdata.
+- Nye illustrasjoner er egne SVG-er fra produktreferansene, med tydelige statusmerker. Det distribueres ingen fotografier. Utløst illustrasjon betyr kontrollbehov, ikke bekreftet fangst.

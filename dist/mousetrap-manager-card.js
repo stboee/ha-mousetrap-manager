@@ -5,7 +5,7 @@
  */
 (() => {
   "use strict";
-  const VERSION = "0.4.0";
+  const VERSION = "0.5.0";
   const CARD_TAG = "mousetrap-manager-card";
   const EDITOR_TAG = "mousetrap-manager-card-editor";
   const esc = (s) => String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
@@ -97,7 +97,7 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
       }
       const model = traps.map(([entity, st], index) => {
         const a = st.attributes;
-        const p = !unknown(st.state) && a.presentation ? a.presentation : {type:a.presentation && a.presentation.type || "snap",name:a.trap_name || "Musefelle",status:"unknown",label:"Status ukjent",scene:"unavailable",color:"#495465",priority:3,metrics:[],actions:[],show_scene:true};
+        const p = !unknown(st.state) && a.presentation ? a.presentation : {type:a.presentation && a.presentation.type || "snap",graphic:a.presentation && a.presentation.graphic,name:a.trap_name || "Musefelle",status:"unknown",label:"Status ukjent",scene:"unavailable",color:"#495465",priority:3,metrics:[],actions:[],show_scene:true};
         return {entity, a, p, index};
       });
       if (settings.sort === "name") model.sort((a,b) => a.p.name.localeCompare(b.p.name,"nb"));
@@ -160,8 +160,10 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
     }
     _tile(m, opened) {
       const p = m.p, id = m.a.trap_id;
-      const type = p.type === "victor" ? "victor-m1" : "snap";
-      const scene = ["normal","capture","inspection","unavailable","pending"].includes(p.scene) ? p.scene : "unavailable";
+      const victor = p.type === "victor";
+      const type = victor ? "victor-m1" : (["snap","snap-rapp-2","snap-biltema-giljotin"].includes(p.graphic) ? p.graphic : "snap");
+      const scenes = victor ? ["normal","capture","inspection","unavailable"] : ["normal","pending","inspection","unavailable"];
+      const scene = scenes.includes(p.scene) ? p.scene : "unavailable";
       const color = /^#[a-fA-F0-9]{6}$/.test(p.color) ? p.color : "#495465";
       const actions = (p.actions || []).map((a) => ({...a, contextual:a.contextual !== false}));
       const buttons = (list) => list.map((a) => `<button class="act" data-service="${esc(a.service)}" data-trap="${esc(id)}" data-event="${esc(a.event_id)}" data-focus="${esc(id + a.service)}"${this._busy.has(id) ? " disabled" : ""}>${esc(a.label)}</button>`).join("");

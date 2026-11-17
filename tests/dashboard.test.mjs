@@ -28,6 +28,18 @@ export default async function run(browser) {
     check("normal maintenance actions are collapsed",q(".maintenance").open,false);
     check("normal maintenance action is accessible",q(".maintenance .act").textContent,"Inspeksjon utført");
     check("approved Victor graphic is used",q('[data-id="v"] img').src.includes("victor-m1-normal.svg"),true);
+    for (const graphic of ["snap","snap-rapp-2","snap-biltema-giljotin"]) {
+      for (const scene of ["normal","pending","inspection","unavailable"]) {
+        hass.states["sensor.snap"].attributes.presentation={...normal,graphic,scene};update();
+        const img=q('[data-id="a"] img');img.loading="eager";await img.decode();
+        check(`${graphic} ${scene} graphic loads`,img.naturalWidth>0 && img.src.includes(`${graphic}-${scene}.svg`),true);
+      }
+    }
+    hass.states["sensor.snap"].attributes.presentation={...normal,graphic:"../../bad",scene:"capture"};update();
+    check("unknown graphic and incompatible scene use safe fallback",q('[data-id="a"] img').src.includes("/images/snap-unavailable.svg"),true);
+    hass.states["sensor.victor"].attributes.presentation={...victor,graphic:"snap-rapp-2"};update();
+    check("Victor keeps its own illustration",q('[data-id="v"] img').src.includes("victor-m1-normal.svg"),true);
+    hass.states["sensor.snap"].attributes.presentation=normal;update();
     check("visible status uses large type",parseFloat(getComputedStyle(q(".status")).fontSize)>=20,true);
     check("status contrasts against solid header",getComputedStyle(q(".tile-head")).color,"rgb(255, 255, 255)");
     check("phone layout fits viewport",qa(".tile").every((t)=>t.getBoundingClientRect().right<=window.innerWidth),true);

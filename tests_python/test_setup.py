@@ -77,6 +77,44 @@ async def test_archiving_and_renaming_keeps_trap_id(env):
     ]
 
 
+async def test_snap_graphic_defaults_and_edit_keeps_other_configuration(env):
+    hass, entry, flow = env
+    form = await flow.async_step_add_trap()
+    fields = {key.schema: key for key in form["data_schema"].schema}
+    assert fields["snap_graphic"].default() == "classic"
+    entry.options["traps"][0].update(show_bait_age=False, inspection_interval_days=14)
+    flow._editing = "a"
+    with patch(
+        "custom_components.mousetrap_manager.config_flow.dr.async_get",
+        return_value=SimpleNamespace(async_get=lambda _: SimpleNamespace()),
+    ):
+        for graphic in ("rapp_2", "biltema_giljotin", "classic"):
+            result = await flow.async_step_edit_details(
+                {"name": "Loft", "device_id": "device-a", "topic": "zigbee2mqtt/a", "snap_graphic": graphic}
+            )
+            trap = result["data"]["traps"][0]
+            assert trap == {**entry.options["traps"][0], "snap_graphic": graphic}
+            entry.options = result["data"]
+            form = await flow.async_step_edit_details()
+            fields = {key.schema: key for key in form["data_schema"].schema}
+            assert fields["snap_graphic"].default() == graphic
+    victor = await flow.async_step_add_victor()
+    assert "snap_graphic" not in {key.schema for key in victor["data_schema"].schema}
+
+
+async def test_unknown_snap_graphic_is_rejected(env):
+    hass, entry, flow = env
+    with patch(
+        "custom_components.mousetrap_manager.config_flow.dr.async_get",
+        return_value=SimpleNamespace(async_get=lambda _: SimpleNamespace()),
+    ):
+        result = await flow.async_step_add_trap(
+            {"name": "Loft", "device_id": "device-b", "topic": "zigbee2mqtt/b", "snap_graphic": "other"}
+        )
+    assert result["errors"]["snap_graphic"] == "invalid_snap_graphic"
+    assert len(entry.options["traps"]) == 1
+
+
 async def test_real_ha_services_use_pinned_episode_and_do_not_offer_undo(env):
     hass, entry, flow = env
     hass.http = SimpleNamespace(async_register_static_paths=AsyncMock())

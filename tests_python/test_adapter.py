@@ -70,6 +70,32 @@ async def test_concurrent_confirmation_counts_once_and_is_durable(hass, entry):
     assert CatchCount(restored)._attr_state_class == SensorStateClass.TOTAL
 
 
+async def test_graphic_changes_are_presentation_only_and_keep_pending_and_history(hass, entry):
+    manager = await start(hass, entry)
+    await manager._change(lambda ledger: ledger.movement("a", "2026-10-28T10:00:00+00:00"))
+    pending = manager.ledger.summary("a")["pending_event_id"]
+    await manager.async_acknowledge("a", pending, True)
+    await manager.async_maintenance("a", "bait_replaced", "initial")
+    next_movement = datetime.fromisoformat(manager.ledger.data["traps"]["a"]["cooldown_until"]) + timedelta(seconds=1)
+    await manager._change(lambda ledger: ledger.movement("a", next_movement.isoformat()))
+    before = manager.ledger.clone().data
+    for graphic, prefix in (
+        (None, "snap"),
+        ("rapp_2", "snap-rapp-2"),
+        ("biltema_giljotin", "snap-biltema-giljotin"),
+        ("classic", "snap"),
+        ("unknown", "snap"),
+    ):
+        entry.options["traps"][0]["snap_graphic"] = graphic
+        view = manager.summary("a")
+        assert view["presentation"]["graphic"] == prefix
+        assert view["presentation"]["scene"] == "pending"
+        assert view["catch_count"] == 1
+        assert view["last_bait_replaced"]
+        assert manager.ledger.data == before
+    manager.async_stop()
+
+
 async def test_save_failure_does_not_publish_an_uncommitted_capture(hass, entry):
     manager = await start(hass, entry)
     await manager._change(lambda ledger: ledger.movement("a", "2026-10-28T10:00:00+00:00"))

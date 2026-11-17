@@ -7,7 +7,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from .attention import attention_reasons
-from .const import DOMAIN
+from .const import DOMAIN, SNAP_GRAPHICS
 from .ledger import instant
 
 DISPLAY_DEFAULTS = {
@@ -204,8 +204,12 @@ def presentation(manager, config, summary, now):
             if entity_id:
                 metric["entity_id"] = entity_id
         metrics.append(metric)
+    graphic = config.get("snap_graphic", "classic")
+    if not isinstance(graphic, str) or graphic not in SNAP_GRAPHICS:
+        graphic = "classic"
     return {
         "type": "victor" if victor else "snap",
+        "graphic": "victor-m1" if victor else SNAP_GRAPHICS[graphic][1],
         "name": summary["name"],
         "location": location,
         "status": status,
