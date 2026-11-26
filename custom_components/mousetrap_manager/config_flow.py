@@ -12,8 +12,30 @@ from homeassistant.helpers import selector
 from .attention import ATTENTION_DEFAULTS, attention_settings, valid_navigation_path
 from .const import DEFAULT_COOLDOWN, DOMAIN, SNAP_GRAPHICS
 from .ledger import LedgerError
-from .presentation import DISPLAY_DEFAULTS, METRIC_LABELS, SOURCE_SUFFIXES, display_settings
+from .notification_preferences import NOTICE_TYPES, notice_default, notice_override
+from .presentation import METRIC_LABELS, SOURCE_SUFFIXES, display_settings
 from .victor_recovery import RECOVERY_DEFAULTS
+
+THRESHOLDS = {"battery_low": 100, "stale_after_hours": 87600, "offline_after_hours": 87600}
+TRAP_LAYOUT = ("show_scene", "animations", "metrics")
+TRAP_ACTIONS = {
+    "pause": "Sett på sesongpause",
+    "resume": "Ta i bruk igjen",
+    "start_test": "Gjør til testfelle",
+    "stop_test": "Ta i ordinær bruk",
+    "reset_test": "Nullstill testfelle",
+    "remove": "Fjern felle, behold historikk",
+    "delete": "Slett felle og historikk",
+}
+
+
+def dropdown(options):
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[{"value": value, "label": label} for value, label in options.items()],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
 
 
 def valid_topic(topic):
@@ -43,31 +65,31 @@ class MousetrapConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class MousetrapOptionsFlow(config_entries.OptionsFlow):
     def _options(self):
-        return {
+        options = {
             "traps": [],
             "notifications_enabled": False,
-            "movement_notifications_enabled": self.config_entry.options.get("notifications_enabled", False),
             "cooldown_seconds": DEFAULT_COOLDOWN,
             **deepcopy(dict(self.config_entry.options)),
         }
+        manager = self._manager()
+        if manager:
+            options["traps"] = deepcopy(manager.traps)
+        return options
 
     def _manager(self):
         return self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
 
     async def async_step_init(self, user_input=None):
-        return self.async_show_menu(
-            step_id="init",
-            menu_options=[
-                "add_trap",
-                "add_victor",
-                "edit_trap",
-                "display",
-                "attention",
-                "settings",
-                "victor_recovery",
-                "undo",
-            ],
-        )
+        return self.async_show_menu(step_id="init", menu_options=["traps", "settings", "cards", "operations"])
+
+    async def async_step_traps(self, user_input=None):
+        return self.async_show_menu(step_id="traps", menu_options=["add_trap", "add_victor", "edit_trap", "undo"])
+
+    async def async_step_cards(self, user_input=None):
+        return self.async_show_menu(step_id="cards", menu_options=["display", "attention"])
+
+    async def async_step_operations(self, user_input=None):
+        return self.async_show_menu(step_id="operations", menu_options=["movement", "thresholds", "victor_recovery"])
 
     async def async_step_attention(self, user_input=None):
         options = self._options()
@@ -149,17 +171,14 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
             return self.async_abort(reason="no_traps")
         if user_input:
             self._editing = user_input["trap_id"]
-            return await self.async_step_edit_details()
+            return await self.async_step_trap_menu()
         return self.async_show_form(
             step_id="edit_trap",
             data_schema=vol.Schema(
                 {
                     vol.Required("trap_id"): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=[
-                                {"value": t["id"], "label": t["name"] + (" (arkivert)" if t.get("archived") else "")}
-                                for t in traps
-                            ],
+                            options=[{"value": t["id"], "label": self._trap_label(t)} for t in traps],
                             mode=selector.SelectSelectorMode.DROPDOWN,
                         )
                     ),
@@ -169,6 +188,30 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_edit_details(self, user_input=None):
         return await self._trap_form("edit_details", user_input, self._editing)
+
+    def _selected_trap(self, options):
+        return next((trap for trap in options["traps"] if trap["id"] == self._editing), None)
+
+    def _trap_label(self, config):
+        manager = self._manager()
+        trap = manager.ledger.data["traps"].get(config["id"], config) if manager else config
+        states = []
+        if trap.get("archived"):
+            states.append("Sesongpause")
+        if trap.get("test"):
+            states.append("Testfelle")
+        return config["name"] + (f" ({', '.join(states)})" if states else "")
+
+    async def async_step_trap_menu(self, user_input=None):
+        trap = self._selected_trap(self._options())
+        if trap is None:
+            return self.async_abort(reason="trap_changed")
+        choices = ["edit_details", "trap_notices", "trap_display", "trap_thresholds", "trap_actions"]
+        if trap.get("type") == "victor":
+            choices.insert(-1, "victor_sources")
+        return self.async_show_menu(
+            step_id="trap_menu", menu_options=choices, description_placeholders={"trap": self._trap_label(trap)}
+        )
 
     @staticmethod
     def _display_schema(values, global_settings=False):
@@ -194,7 +237,12 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
                 multiple=True, options=[{"value": k, "label": v} for k, v in METRIC_LABELS.items()]
             )
         )
-        for key, maximum in (("battery_low", 100), ("stale_after_hours", 87600), ("offline_after_hours", 87600)):
+        return schema
+
+    @staticmethod
+    def _threshold_schema(values):
+        schema = {}
+        for key, maximum in THRESHOLDS.items():
             schema[vol.Required(key, default=values[key])] = selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=maximum, step=1, mode=selector.NumberSelectorMode.BOX)
             )
@@ -209,21 +257,18 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_display(self, user_input=None):
         options = self._options()
-        values = display_settings(options)
-        errors = {}
         if user_input is not None:
-            values.update(user_input)
-            errors = self._display_errors(values)
-            if not errors:
-                options["display"] = values
-                return self.async_create_entry(title="", data=options)
+            options["display"] = {**options.get("display", {}), **user_input}
+            return self.async_create_entry(title="", data=options)
         return self.async_show_form(
-            step_id="display", data_schema=vol.Schema(self._display_schema(values, True)), errors=errors
+            step_id="display", data_schema=vol.Schema(self._display_schema(display_settings(options), True))
         )
 
     async def _trap_form(self, step_id, user_input, editing=None, kind=None):
         options = self._options()
         existing = next((t for t in options["traps"] if t["id"] == editing), {})
+        if editing and not existing:
+            return self.async_abort(reason="trap_changed")
         kind = kind or existing.get("type", "snap")
         errors = {}
         if user_input is not None:
@@ -257,29 +302,16 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
                 for t in options["traps"]
             ):
                 errors["base"] = "already_registered"
-            override = user_input.pop("override_display", bool(existing.get("display")))
-            display = {k: user_input.pop(k) for k in DISPLAY_DEFAULTS if k in user_input}
-            if override:
-                display = {**display_settings(options, existing), **display}
-                errors.update(self._display_errors(display))
-            sources = {
-                role: user_input.pop("source_" + role) for role in SOURCE_SUFFIXES if "source_" + role in user_input
-            }
             if not errors:
                 trap = {**existing, **user_input, "id": editing or uuid4().hex}
                 if kind == "victor":
                     trap["type"] = "victor"
-                    trap["source_entities"] = sources
-                if override:
-                    trap["display"] = display
-                else:
-                    trap.pop("display", None)
                 if editing:
                     options["traps"] = [trap if t["id"] == editing else t for t in options["traps"]]
                 else:
                     options["traps"].append(trap)
                 return self.async_create_entry(title="", data=options)
-            existing = {**existing, **user_input, "display": display if override else {}}
+            existing = {**existing, **user_input}
         schema = {
             vol.Required("name", default=existing.get("name", "")): str,
             vol.Optional("location", default=existing.get("location", "")): str,
@@ -309,21 +341,10 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
                         min=0, max=3650, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="d"
                     )
                 ),
-                vol.Required(
-                    "inspection_notifications_enabled", default=existing.get("inspection_notifications_enabled", False)
-                ): bool,
-                vol.Required("override_display", default=bool(existing.get("display"))): bool,
-                **self._display_schema(display_settings(options, existing)),
             }
         )
-        if kind == "victor":
-            for role in SOURCE_SUFFIXES:
-                value = existing.get("source_entities", {}).get(role)
-                schema[vol.Optional("source_" + role, **({"default": value} if value else {}))] = (
-                    selector.EntitySelector()
-                )
-        if editing:
-            schema[vol.Required("archived", default=existing.get("archived", False))] = bool
+        if not editing:
+            schema[vol.Required("initial_test", default=existing.get("initial_test", False))] = bool
         return self.async_show_form(step_id=step_id, data_schema=vol.Schema(schema), errors=errors)
 
     async def async_step_settings(self, user_input=None):
@@ -336,12 +357,23 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required("notifications_enabled", default=options["notifications_enabled"]): bool,
-                    vol.Required(
-                        "health_notifications_enabled", default=options.get("health_notifications_enabled", False)
-                    ): bool,
-                    vol.Required(
-                        "movement_notifications_enabled", default=options["movement_notifications_enabled"]
-                    ): bool,
+                    **{
+                        vol.Required(f"{kind}_notifications_enabled", default=notice_default(options, kind)): bool
+                        for kind in NOTICE_TYPES
+                    },
+                }
+            ),
+        )
+
+    async def async_step_movement(self, user_input=None):
+        options = self._options()
+        if user_input is not None:
+            options["cooldown_seconds"] = int(user_input["cooldown_seconds"])
+            return self.async_create_entry(title="", data=options)
+        return self.async_show_form(
+            step_id="movement",
+            data_schema=vol.Schema(
+                {
                     vol.Required("cooldown_seconds", default=options["cooldown_seconds"]): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=0, max=600, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="s"
@@ -349,6 +381,199 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
                     ),
                 }
             ),
+        )
+
+    async def async_step_thresholds(self, user_input=None):
+        options = self._options()
+        values = display_settings(options)
+        errors = {}
+        if user_input is not None:
+            values.update(user_input)
+            errors = self._display_errors(values)
+            if not errors:
+                options["display"] = {**options.get("display", {}), **user_input}
+                return self.async_create_entry(title="", data=options)
+        return self.async_show_form(
+            step_id="thresholds", data_schema=vol.Schema(self._threshold_schema(values)), errors=errors
+        )
+
+    async def async_step_trap_notices(self, user_input=None):
+        options = self._options()
+        trap = self._selected_trap(options)
+        if trap is None:
+            return self.async_abort(reason="trap_changed")
+        kinds = [kind for kind in NOTICE_TYPES if kind != "movement" or trap.get("type", "snap") == "snap"]
+        if user_input is not None:
+            trap["notification_overrides"] = {kind: user_input[kind] for kind in kinds if user_input[kind] != "inherit"}
+            trap.pop("inspection_notifications_enabled", None)
+            return self.async_create_entry(title="", data=options)
+        schema = {}
+        for kind in kinds:
+            common = "på" if notice_default(options, kind) else "av"
+            schema[vol.Required(kind, default=notice_override(trap, kind))] = dropdown(
+                {"inherit": f"Følg felles standard ({common})", "on": "På", "off": "Av"}
+            )
+        return self.async_show_form(
+            step_id="trap_notices",
+            data_schema=vol.Schema(schema),
+            description_placeholders={"master": "på" if options["notifications_enabled"] else "av"},
+        )
+
+    async def async_step_trap_display(self, user_input=None):
+        return await self._trap_override("trap_display", "trap_display_values", TRAP_LAYOUT, user_input)
+
+    async def async_step_trap_thresholds(self, user_input=None):
+        return await self._trap_override("trap_thresholds", "trap_threshold_values", THRESHOLDS, user_input)
+
+    async def _trap_override(self, step, values_step, keys, user_input):
+        options = self._options()
+        trap = self._selected_trap(options)
+        if trap is None:
+            return self.async_abort(reason="trap_changed")
+        override = trap.get("display", {})
+        if user_input is not None:
+            if user_input["mode"] == "custom":
+                return await getattr(self, f"async_step_{values_step}")()
+            trap["display"] = {key: value for key, value in override.items() if key not in keys}
+            if not trap["display"]:
+                trap.pop("display")
+            return self.async_create_entry(title="", data=options)
+        return self.async_show_form(
+            step_id=step,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "mode", default="custom" if any(key in override for key in keys) else "inherit"
+                    ): dropdown({"inherit": "Følg felles oppsett", "custom": "Egne innstillinger for fellen"}),
+                }
+            ),
+        )
+
+    async def async_step_trap_display_values(self, user_input=None):
+        return await self._trap_override_values("trap_display_values", self._display_schema, user_input)
+
+    async def async_step_trap_threshold_values(self, user_input=None):
+        return await self._trap_override_values("trap_threshold_values", self._threshold_schema, user_input)
+
+    async def _trap_override_values(self, step, schema, user_input):
+        options = self._options()
+        trap = self._selected_trap(options)
+        if trap is None:
+            return self.async_abort(reason="trap_changed")
+        values = display_settings(options, trap)
+        errors = {}
+        if user_input is not None:
+            values.update(user_input)
+            errors = self._display_errors(values) if step == "trap_threshold_values" else {}
+            if not errors:
+                trap["display"] = {**trap.get("display", {}), **user_input}
+                return self.async_create_entry(title="", data=options)
+        return self.async_show_form(step_id=step, data_schema=vol.Schema(schema(values)), errors=errors)
+
+    async def async_step_victor_sources(self, user_input=None):
+        options = self._options()
+        trap = self._selected_trap(options)
+        if trap is None or trap.get("type") != "victor":
+            return self.async_abort(reason="trap_changed")
+        if user_input is not None:
+            trap["source_entities"] = {
+                role: user_input["source_" + role] for role in SOURCE_SUFFIXES if user_input.get("source_" + role)
+            }
+            return self.async_create_entry(title="", data=options)
+        sources = trap.get("source_entities", {})
+        schema = {}
+        for role in SOURCE_SUFFIXES:
+            value = sources.get(role)
+            schema[vol.Optional("source_" + role, **({"default": value} if value else {}))] = selector.EntitySelector()
+        return self.async_show_form(step_id="victor_sources", data_schema=vol.Schema(schema))
+
+    async def async_step_trap_actions(self, user_input=None):
+        manager = self._manager()
+        config = self._selected_trap(self._options())
+        if manager is None or config is None or self._editing not in manager.ledger.data["traps"]:
+            return self.async_abort(reason="trap_changed")
+        trap = manager.ledger.summary(self._editing)
+        allowed = ["resume" if trap["archived"] else "pause", "stop_test" if trap["test"] else "start_test"]
+        if trap["test"]:
+            allowed.append("reset_test")
+        allowed.extend(("remove", "delete"))
+        if user_input is not None:
+            action = user_input["action"]
+            if action not in allowed:
+                return self.async_abort(reason="trap_changed")
+            if trap["pending_event_id"] and action in ("pause", "start_test", "stop_test", "remove"):
+                return self.async_abort(reason="pending_control")
+            self._trap_action = action
+            self._trap_stamp = manager.ledger.management_stamp(self._editing)
+            return await self.async_step_trap_action_confirm()
+        return self.async_show_form(
+            step_id="trap_actions",
+            data_schema=vol.Schema({vol.Required("action"): dropdown({key: TRAP_ACTIONS[key] for key in allowed})}),
+            description_placeholders={"trap": self._trap_label(config)},
+        )
+
+    async def async_step_trap_action_confirm(self, user_input=None):
+        manager = self._manager()
+        options = self._options()
+        config = self._selected_trap(options)
+        if (
+            manager is None
+            or config is None
+            or self._editing not in manager.ledger.data["traps"]
+            or manager.ledger.management_stamp(self._editing) != self._trap_stamp
+        ):
+            return self.async_abort(reason="trap_changed")
+        action = self._trap_action
+        catches = len(manager.ledger.catches(self._editing))
+        errors = {}
+        if user_input is not None:
+            if not user_input.get("confirm"):
+                errors["confirm"] = "confirmation_required"
+            else:
+                choice = {}
+                if action == "resume":
+                    choice["replace_bait"] = user_input.get("replace_bait", False)
+                if action == "start_test":
+                    choice["move_history"] = user_input.get("move_history", False)
+                try:
+                    changed = await manager.async_manage_trap(self._editing, self._trap_stamp, action, **choice)
+                except LedgerError:
+                    return self.async_abort(reason="trap_changed")
+                except OSError:
+                    errors["base"] = "save_failed"
+                else:
+                    if not changed:
+                        return self.async_abort(reason="trap_changed")
+                    if action in ("remove", "delete"):
+                        # Fetch current options again so changes from another form are preserved.
+                        return self.async_create_entry(title="", data=self._options())
+                    return self.async_abort(reason="trap_action_done")
+        schema = {vol.Required("confirm", default=False): bool}
+        if action == "resume":
+            schema[vol.Required("replace_bait", default=False)] = bool
+        if action == "start_test":
+            schema[vol.Required("move_history", default=False)] = bool
+        impacts = {
+            "pause": "Fellen skjules fra kortene. Oppsett og historikk beholdes.",
+            "resume": "Klargjør fellen før du bekrefter. Neste inspeksjonsfrist regnes fra i dag.",
+            "start_test": f"Fremtidige hendelser går til testloggen. Flytting av tidligere historikk trekker "
+            f"{catches} fangster fra samlet klappfelleteller.",
+            "stop_test": "Fremtidige hendelser går til driftsloggen. Tidligere tester blir stående i testloggen.",
+            "reset_test": "Testfangster, testlogg, ventende kontroll og registrert åte- og inspeksjonsstatus "
+            "nullstilles. Oppsett og eventuell tidligere driftshistorikk beholdes.",
+            "remove": f"Sensoren kan brukes på en ny felle. Fellens {catches} driftsfangster blir stående i totalen.",
+            "delete": f"Fellen og loggen slettes fra integrasjonen. {catches} fangster trekkes fra "
+            "samlet klappfelleteller. Historiske verdier i Home Assistant Recorder forblir lagret.",
+        }
+        return self.async_show_form(
+            step_id="trap_action_confirm",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders={
+                "trap": config["name"],
+                "action": TRAP_ACTIONS[action],
+                "impact": impacts[action],
+            },
         )
 
     async def async_step_undo(self, user_input=None):
@@ -359,7 +584,7 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
         for trap_id, trap in manager.ledger.data["traps"].items():
             catches = manager.ledger.catches(trap_id)
             if catches:
-                choices.append({"value": trap_id, "label": trap["name"]})
+                choices.append({"value": trap_id, "label": trap["name"] + (" (fjernet)" if trap["removed"] else "")})
         if not choices:
             return self.async_abort(reason="no_captures")
         if user_input is not None:

@@ -26,12 +26,17 @@ jobs:
           PY
   backend:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ha_version: ['2026.10.4', '2026.11.2']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - run: pip install homeassistant==2026.10.4 paho-mqtt==2.1.0 pytest pytest-asyncio
+      - run: pip install "homeassistant==$HA_VERSION" paho-mqtt==2.1.0 pytest pytest-asyncio
+        env:
+          HA_VERSION: ${{ matrix.ha_version }}
       - run: python -m pytest -q
   frontend:
     timeout-minutes: 5

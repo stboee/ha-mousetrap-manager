@@ -150,7 +150,7 @@ def presentation(manager, config, summary, now):
         )
     # An unresolved snap movement remains visible even during a source outage.
     if summary["archived"]:
-        status, label, scene, color, priority = "archived", "Arkivert", "unavailable", "#495465", 9
+        status, label, scene, color, priority = "archived", "Sesongpause", "unavailable", "#495465", 9
     elif summary["pending_event_id"] and not victor:
         status, label, scene, color, priority = "pending", "Må kontrolleres", "pending", "#986000", 0
     elif unavailable:
@@ -179,6 +179,8 @@ def presentation(manager, config, summary, now):
         if role not in METRIC_LABELS or (role == "bait_age" and not summary["show_bait_age"]):
             continue
         metric = {"key": role, "label": METRIC_LABELS[role]}
+        if role == "catches" and summary["test"] and not victor:
+            metric["label"] = "Testfangster"
         if role in ("bait_age", "inspection_age"):
             metric.update(value=summary[role + "_days"], format="days")
         elif not victor and role in ("catches", "last_catch", "contact"):
@@ -199,8 +201,8 @@ def presentation(manager, config, summary, now):
             "inspection_age": "inspection_age_days",
             "contact": "last_sensor_contact",
         }.get(role)
-        if own_key and (not victor or role in ("bait_age", "inspection_age")):
-            entity_id = er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_{config['id']}_{own_key}")
+        if own_key and not summary["test"] and (not victor or role in ("bait_age", "inspection_age")):
+            entity_id = er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_{summary['id']}_{own_key}")
             if entity_id:
                 metric["entity_id"] = entity_id
         metrics.append(metric)
@@ -209,6 +211,7 @@ def presentation(manager, config, summary, now):
         graphic = "classic"
     return {
         "type": "victor" if victor else "snap",
+        "test": summary["test"],
         "graphic": "victor-m1" if victor else SNAP_GRAPHICS[graphic][1],
         "name": summary["name"],
         "location": location,
@@ -237,6 +240,6 @@ def presentation(manager, config, summary, now):
             contact_unknown=contact is None,
             battery=low,
         )
-        if not summary["archived"]
+        if not summary["archived"] and not summary["test"]
         else [],
     }

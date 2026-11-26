@@ -57,10 +57,10 @@ def attention_overview(manager, now):
     items = []
     for config in manager.traps:
         # Options can change just before HA reloads the manager; new traps become active after sync.
-        if config.get("archived") or config["id"] not in manager.ledger.data["traps"]:
+        if config["id"] not in manager.ledger.data["traps"]:
             continue
         summary = manager.summary(config["id"], now)
-        if summary["archived"]:
+        if summary["archived"] or summary["test"]:
             continue
         view = summary["presentation"]
         reasons = view["attention_reasons"]

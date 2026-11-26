@@ -22,7 +22,7 @@ def instant(value: str) -> datetime:
 
 
 class Ledger:
-    """Authoritative trap state and append-only event journal."""
+    """Authoritative trap state and event journal."""
 
     def __init__(self, data: dict | None = None):
         self.data = (
@@ -55,6 +55,9 @@ class Ledger:
             trap.setdefault("last_bait_replaced", None)
             trap.setdefault("bait_event_id", None)
             trap.setdefault("last_sensor_contact", None)
+            trap.setdefault("test", False)
+            trap.setdefault("removed", False)
+            trap.setdefault("inspection_baseline", None)
 
     def clone(self):
         return Ledger(self.data)
@@ -74,6 +77,8 @@ class Ledger:
     def _append(self, trap_id, kind, at, **extra):
         instant(at)
         event = {"id": uuid4().hex, "trap_id": trap_id, "type": kind, "at": at, **extra}
+        if self._trap(trap_id)["test"]:
+            event["test"] = True
         self.data["events"].append(event)
         self.data["revision"] += 1
         return event
@@ -97,11 +102,16 @@ class Ledger:
                     "last_bait_replaced": None,
                     "bait_event_id": None,
                     "last_sensor_contact": None,
+                    "test": bool(config.get("initial_test", False)),
+                    "removed": False,
+                    "inspection_baseline": None,
                 }
                 self._append(trap_id, "registered", at)
                 changed = True
             trap = self._trap(trap_id)
-            archived = bool(config.get("archived", False))
+            if trap["removed"]:
+                continue
+            archived = trap.get("season_paused", bool(config.get("archived", False)))
             if trap["name"] != config["name"]:
                 self._append(trap_id, "renamed", at, old_name=trap["name"], name=config["name"])
                 trap["name"] = config["name"]
@@ -119,6 +129,92 @@ class Ledger:
                 self._append(trap_id, "archived", at)
                 changed = True
         return changed
+
+    def management_stamp(self, trap_id):
+        """Pin confirmation to this trap's journal and current mode."""
+        trap = self._trap(trap_id)
+        events = [event["id"] for event in self.data["events"] if event["trap_id"] == trap_id]
+        return trap["archived"], trap["test"], trap["removed"], len(events), events[-1] if events else None
+
+    def set_season_pause(self, trap_id, paused, at, cooldown, replace_bait=False):
+        trap = self._trap(trap_id)
+        if trap["removed"] or trap["archived"] == paused:
+            return False
+        if trap["pending_event_id"]:
+            raise LedgerError("Avklar ventende kontroll før sesongpause.")
+        trap["season_paused"] = paused
+        trap["archived"] = paused
+        trap["cooldown_until"] = None
+        self._append(trap_id, "season_paused" if paused else "reactivated", at)
+        if not paused:
+            self._record_inspection(trap_id, at, "reactivated")
+            trap["cooldown_until"] = (instant(at) + timedelta(seconds=cooldown)).isoformat()
+            if replace_bait:
+                self.replace_bait(trap_id, trap["bait_event_id"] or "initial", at)
+        return True
+
+    def _clear_operational_history(self, trap, at, event_id):
+        # New tokens also invalidate maintenance buttons left open on another client.
+        trap.update(
+            pending_event_id=None,
+            cooldown_until=None,
+            last_movement=None,
+            last_inspection=None,
+            last_bait_replaced=None,
+            last_sensor_contact=None,
+            inspection_baseline=at,
+            inspection_event_id=event_id,
+            bait_event_id=event_id,
+        )
+
+    def set_test_mode(self, trap_id, enabled, at, move_history=False):
+        trap = self._trap(trap_id)
+        if trap["removed"] or trap["test"] == enabled:
+            return False
+        if trap["pending_event_id"]:
+            raise LedgerError("Avklar ventende kontroll før du bytter mellom drift og test.")
+        if enabled and move_history:
+            for event in self.data["events"]:
+                if event["trap_id"] == trap_id:
+                    event["test"] = True
+        trap["test"] = enabled
+        event = self._append(trap_id, "test_started" if enabled else "test_ended", at)
+        self._clear_operational_history(trap, at, event["id"])
+        return True
+
+    def reset_test(self, trap_id, at):
+        trap = self._trap(trap_id)
+        if not trap["test"] or trap["removed"]:
+            raise LedgerError("Bare testfeller kan nullstilles.")
+        self.data["events"] = [
+            event for event in self.data["events"] if event["trap_id"] != trap_id or not event.get("test")
+        ]
+        self._clear_operational_history(trap, at, uuid4().hex)
+        self.data["revision"] += 1
+        return True
+
+    def remove_trap(self, trap_id, at, keep_history):
+        trap = self._trap(trap_id)
+        if trap["removed"]:
+            return False
+        if keep_history and trap["pending_event_id"]:
+            raise LedgerError("Avklar ventende kontroll før fellen fjernes.")
+        if keep_history:
+            self._append(trap_id, "removed", at)
+        else:
+            self.data["events"] = [event for event in self.data["events"] if event["trap_id"] != trap_id]
+            self.data["revision"] += 1
+        # Keep a tombstone so an interrupted config update cannot recreate a deleted trap.
+        self.data["traps"][trap_id] = {
+            "id": trap_id,
+            "name": trap["name"] if keep_history else "Fjernet felle",
+            "removed": True,
+            "archived": True,
+            "test": trap["test"] if keep_history else False,
+            "registered_at": None,
+        }
+        self._clear_operational_history(self._trap(trap_id), None, None)
+        return True
 
     def movement(self, trap_id, at):
         trap = self._trap(trap_id)
@@ -170,7 +266,7 @@ class Ledger:
     def inspect(self, trap_id, previous_event_id, at, cooldown):
         trap = self._trap(trap_id)
         if trap["archived"]:
-            raise LedgerError("Arkiverte feller kan ikke inspiseres")
+            raise LedgerError("Fellen må være i bruk for å registrere inspeksjon")
         if previous_event_id != (trap["inspection_event_id"] or "initial"):
             return False
         if trap["pending_event_id"]:
@@ -182,7 +278,7 @@ class Ledger:
     def replace_bait(self, trap_id, previous_event_id, at):
         trap = self._trap(trap_id)
         if trap["archived"]:
-            raise LedgerError("Arkiverte feller kan ikke få registrert åtebytte")
+            raise LedgerError("Fellen må være i bruk for å registrere åtebytte")
         if previous_event_id != (trap["bait_event_id"] or "initial"):
             return False
         event = self._append(trap_id, "bait_replaced", at)
@@ -198,7 +294,7 @@ class Ledger:
         def age(value):
             return max(0, int((now - instant(value)).total_seconds() // 86400)) if value else None
 
-        baseline = trap["last_inspection"] or trap["registered_at"]
+        baseline = trap["last_inspection"] or trap["inspection_baseline"] or trap["registered_at"]
         due_at = instant(baseline) + timedelta(days=interval_days) if baseline and interval_days else None
         return {
             **trap,
@@ -208,12 +304,13 @@ class Ledger:
             "inspection_due": bool(interval_days and not trap["archived"] and (due_at is None or now >= due_at)),
         }
 
-    def catches(self, trap_id=None):
+    def catches(self, trap_id=None, *, test=False):
         voided = {e["capture_id"] for e in self.data["events"] if e["type"] == "capture_voided"}
         return [
             e
             for e in self.data["events"]
             if e["type"] == "capture_confirmed"
+            and bool(e.get("test")) == test
             and e["id"] not in voided
             and (trap_id is None or e["trap_id"] == trap_id)
         ]
@@ -225,20 +322,27 @@ class Ledger:
             raise LedgerError("Not a capture for this trap")
         if any(e.get("capture_id") == capture_id for e in self.data["events"]):
             return False
-        valid = self.catches(trap_id)
+        valid = self.catches(trap_id, test=bool(capture.get("test")))
         if not valid or valid[-1]["id"] != capture_id:
             raise LedgerError("Only the latest valid capture can be undone")
-        self._append(trap_id, "capture_voided", at, capture_id=capture_id)
+        event = self._append(trap_id, "capture_voided", at, capture_id=capture_id)
+        event.pop("test", None)
+        if capture.get("test"):
+            event["test"] = True
         return True
 
     def summary(self, trap_id):
         trap = deepcopy(self._trap(trap_id))
-        catches = self.catches(trap_id)
+        catches = self.catches(trap_id, test=trap["test"])
         trap.update(catch_count=len(catches), last_catch=catches[-1]["at"] if catches else None)
         return trap
 
-    def journal(self, trap_id=None, before=None, limit=50):
-        events = [e for e in self.data["events"] if trap_id is None or e["trap_id"] == trap_id]
+    def journal(self, trap_id=None, before=None, limit=50, *, test=False):
+        events = [
+            event
+            for event in self.data["events"]
+            if bool(event.get("test")) == test and (trap_id is None or event["trap_id"] == trap_id)
+        ]
         if before:
             positions = [i for i, e in enumerate(events) if e["id"] == before]
             if not positions:
@@ -246,3 +350,11 @@ class Ledger:
             events = events[: positions[0]]
         events = list(reversed(events[-limit:]))
         return [{**e, "name": self._trap(e["trap_id"])["name"]} for e in events]
+
+    def journal_traps(self, *, test=False):
+        ids = {event["trap_id"] for event in self.data["events"] if bool(event.get("test")) == test}
+        return [
+            {"id": trap_id, "name": trap["name"], "removed": trap["removed"]}
+            for trap_id, trap in self.data["traps"].items()
+            if trap_id in ids
+        ]

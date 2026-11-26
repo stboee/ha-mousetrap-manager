@@ -5,7 +5,7 @@
  */
 (() => {
   "use strict";
-  const VERSION = "0.5.0";
+  const VERSION = "2026.11.26";
   const CARD_TAG = "mousetrap-manager-card";
   const EDITOR_TAG = "mousetrap-manager-card-editor";
   const esc = (s) => String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
@@ -15,7 +15,9 @@
   const attentionCondition = (entity) => ({condition:"state",entity,state_not:"off"});
   const isAttentionCondition = (c, entity) => c && c.condition === "state" && c.entity === entity && c.state_not === "off" && Object.keys(c).length === 3;
   const events = {
-    registered: "Felle registrert", renamed: "Felle omd\u00f8pt", archived: "Felle arkivert", reactivated: "Felle tatt i bruk igjen",
+    registered: "Felle registrert", renamed: "Felle omd\u00f8pt", archived: "Felle satt p\u00e5 sesongpause", season_paused: "Felle satt p\u00e5 sesongpause",
+    reactivated: "Felle tatt i bruk igjen", removed: "Felle fjernet, historikk beholdt",
+    test_started: "Test startet", test_ended: "Felle tatt i ordin\u00e6r bruk",
     movement: "Bevegelse registrert", capture_confirmed: "Fangst bekreftet", false_alarm: "Falsk alarm kvittert",
     capture_voided: "Siste fangst angret", bait_replaced: "\u00c5te byttet", inspection_completed: "Inspeksjon utf\u00f8rt; \u00e5tet er inspisert",
   };
@@ -29,7 +31,7 @@ h2{margin:0 0 12px;font-size:22px}.summary{display:flex;flex-wrap:wrap;gap:8px;m
 .scene{display:block;width:100%;height:150px;object-fit:contain;padding:5px 8px;background:#f8fafb}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px}.metric{text-align:left;background:transparent;color:inherit;border:0;border-radius:5px;padding:0;min-width:0;font:inherit}.metric[data-entity]{cursor:pointer}.m-label{font-size:13px;line-height:1.3;display:block}.m-value{font-size:17px;font-weight:650;line-height:1.5;display:block;overflow-wrap:anywhere}
 button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px;cursor:pointer;background:var(--secondary-background-color,#f0f3f6);border:1px solid var(--divider-color,#c6cdd4);border-radius:9px}button:disabled{opacity:.5;cursor:wait}button:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid var(--primary-color,#03a9f4);outline-offset:2px}
 .actions{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 14px}.maintenance{margin:0 14px 14px}.maintenance summary{cursor:pointer;min-height:36px;padding:7px 0}.maintenance .actions{padding:8px 0 0}.message{padding:0 14px 14px;margin:0;overflow-wrap:anywhere}.message:empty{display:none}.empty{padding:12px 0;font-size:16px;line-height:1.5}
-.manager-journal{margin-top:18px;border-top:1px solid var(--divider-color,#dadfe4);padding-top:12px}.manager-journal>summary{font-size:17px;font-weight:600;cursor:pointer;padding:5px 0}.journal-controls{display:flex;gap:8px;margin:10px 0}.journal-controls select{max-width:100%;min-height:44px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#ccc);border-radius:6px;padding:6px}.journal-events{padding-left:22px;font-size:14px;line-height:1.5}.journal-events li{padding:4px 0;overflow-wrap:anywhere}.journal-error{overflow-wrap:anywhere}
+.manager-journal{margin-top:18px;border-top:1px solid var(--divider-color,#dadfe4);padding-top:12px}.manager-journal>summary{font-size:17px;font-weight:600;cursor:pointer;padding:5px 0}.journal-controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.journal-controls select{max-width:100%;min-height:44px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#ccc);border-radius:6px;padding:6px}.journal-events{padding-left:22px;font-size:14px;line-height:1.5}.journal-events li{padding:4px 0;overflow-wrap:anywhere}.journal-error{overflow-wrap:anywhere}
 .tile.animate.capture{animation:attention 2.4s ease-in-out 3}@keyframes attention{50%{border-color:#f09aa8}}@media(prefers-reduced-motion:reduce){.tile.animate.capture{animation:none}}@media(max-width:340px){ha-card{padding:10px}.metrics{gap:8px;padding:10px}.status{font-size:20px}}
 [hidden]{display:none!important}.attention-card{padding:0}.attention-content{display:block;padding:12px 14px;color:inherit;text-decoration:none}.attention-content h2{font-size:18px;margin:0 0 3px}.attention-content p{margin:0;line-height:1.4}.attention-summary{font-size:14px}.attention-items{padding:0;margin:8px 0 0;list-style:none}.attention-row{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--divider-color,#dadfe4);min-width:0}.attention-row>div{min-width:0}.attention-mark{flex:none;width:22px;align-self:flex-start;--mdc-icon-size:22px}.attention-name{display:block;font-size:16px;overflow-wrap:anywhere}.attention-reason{display:block;font-size:14px;line-height:1.4;overflow-wrap:anywhere}.attention-open{display:block;margin-top:8px;font-size:14px;font-weight:600;color:var(--primary-color,#0277bd)}.attention-link:focus-visible{outline:3px solid var(--primary-color,#03a9f4);outline-offset:-3px}.attention-error{border-left:5px solid #986000}.attention-hint{padding-top:8px;font-size:14px}
 `;
@@ -56,10 +58,16 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
   class MousetrapManagerCard extends HTMLElement {
     constructor() {
       super(); this.attachShadow({mode:"open"}); this._busy = new Set(); this._messages = new Map(); this._journalRequest = 0;
-      this.shadowRoot.innerHTML = `<style>${CSS}</style><ha-card class="full-card"><div class="overview"></div><div class="grid"></div><details class="manager-journal"><summary>Hendelseslogg</summary><div class="journal-controls"><select aria-label="Velg felle i hendelsesloggen"></select><button class="refresh">Oppdater</button></div><p class="journal-error" role="status"></p><ol class="journal-events"></ol><button class="more" hidden>Vis eldre</button></details></ha-card><ha-card class="attention-card" hidden></ha-card>`;
+      this.shadowRoot.innerHTML = `<style>${CSS}</style><ha-card class="full-card"><div class="overview"></div><div class="grid"></div><details class="manager-journal"><summary>Hendelseslogg</summary><div class="journal-controls"><select class="journal-trap" aria-label="Velg felle i hendelsesloggen"></select><select class="journal-scope" aria-label="Velg hendelseslogg"><option value="drift">Driftslogg</option><option value="test">Testlogg</option></select><button class="refresh">Oppdater</button></div><p class="journal-error" role="status"></p><ol class="journal-events"></ol><button class="more" hidden>Vis eldre</button></details></ha-card><ha-card class="attention-card" hidden></ha-card>`;
       const journal = this.shadowRoot.querySelector(".manager-journal");
       journal.addEventListener("toggle", () => { if (journal.open) this._loadJournal(); });
-      this.shadowRoot.querySelector("select").addEventListener("change", () => this._loadJournal());
+      this._journalTraps = new Map();
+      this.shadowRoot.querySelector(".journal-trap").addEventListener("change", () => this._loadJournal());
+      this.shadowRoot.querySelector(".journal-scope").addEventListener("change", () => {
+        this.shadowRoot.querySelector(".journal-trap").value = "";
+        this._updateJournalFilters();
+        this._loadJournal();
+      });
       this.shadowRoot.querySelector(".refresh").addEventListener("click", () => this._loadJournal());
       this.shadowRoot.querySelector(".more").addEventListener("click", () => this._loadJournal(this._cursor));
     }
@@ -90,6 +98,7 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
       const allTraps = states.filter((p) => p[1].attributes.mousetrap_manager);
       const traps = allTraps.filter((p) => !p[1].attributes.archived && p[1].state !== "archived");
       this._traps = traps;
+      this._allTraps = allTraps;
       const overview = this.shadowRoot.querySelector(".overview");
       if (!setup) {
         overview.innerHTML = '<p class="empty">Kortoppsettet er utilgjengelig. Kontroller at Mousetrap Manager er oppdatert og lastet.</p>';
@@ -97,14 +106,14 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
       }
       const model = traps.map(([entity, st], index) => {
         const a = st.attributes;
-        const p = !unknown(st.state) && a.presentation ? a.presentation : {type:a.presentation && a.presentation.type || "snap",graphic:a.presentation && a.presentation.graphic,name:a.trap_name || "Musefelle",status:"unknown",label:"Status ukjent",scene:"unavailable",color:"#495465",priority:3,metrics:[],actions:[],show_scene:true};
+        const p = !unknown(st.state) && a.presentation ? a.presentation : {type:a.presentation && a.presentation.type || "snap",graphic:a.presentation && a.presentation.graphic,test:a.test,name:a.trap_name || "Musefelle",status:"unknown",label:"Status ukjent",scene:"unavailable",color:"#495465",priority:3,metrics:[],actions:[],show_scene:true};
         return {entity, a, p, index};
       });
       if (settings.sort === "name") model.sort((a,b) => a.p.name.localeCompare(b.p.name,"nb"));
       if (settings.sort === "status") model.sort((a,b) => a.p.priority - b.p.priority || a.index - b.index);
       const total = states.find((p) => p[1].attributes.mousetrap_manager_total);
       overview.innerHTML = (settings.title ? `<h2>${esc(settings.title)}</h2>` : "") +
-        (settings.show_summary ? `<div class="summary"><span>${model.filter((m) => m.p.type === "snap").length} snap-feller</span><span>${model.filter((m) => m.p.type === "victor").length} Victor-feller</span>${total ? `<span>Snap-fangster: ${esc(unknown(total[1].state) ? "Ukjent" : total[1].state)}</span>` : ""}</div>` : "") +
+        (settings.show_summary ? `<div class="summary"><span>${model.filter((m) => m.p.type === "snap" && !m.p.test).length} snap-feller</span><span>${model.filter((m) => m.p.type === "victor" && !m.p.test).length} Victor-feller</span>${total ? `<span>Snap-fangster: ${esc(unknown(total[1].state) ? "Ukjent" : total[1].state)}</span>` : ""}</div>` : "") +
         (this._legacy ? '<p>Visningsvalg styres n\u00e5 i integrasjonen. Kortets YAML kan forenkles til bare type.</p>' : "");
       const grid = this.shadowRoot.querySelector(".grid");
       grid.style.setProperty("--cols", Math.min(6, Math.max(1, Number(settings.columns) || 3)));
@@ -120,10 +129,25 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
         const next = Array.from(grid.querySelectorAll("[data-focus]")).find((e) => e.dataset.focus === focusKey);
         if (next) next.focus({preventScroll:true});
       }
-      const select = this.shadowRoot.querySelector("select");
-      const selected = select.value;
-      const options = '<option value="">Alle feller</option>' + allTraps.map(([id,st]) => `<option value="${esc(st.attributes.trap_id)}">${esc(st.attributes.trap_name)}</option>`).join("");
-      if (select.innerHTML !== options) { select.innerHTML = options; select.value = selected; }
+      this._updateJournalFilters();
+    }
+    _updateJournalFilters() {
+      const select = this.shadowRoot.querySelector(".journal-trap");
+      const scope = this.shadowRoot.querySelector(".journal-scope").value;
+      const fromLog = this._journalTraps.get(scope) || [];
+      const entries = new Map(fromLog.map((trap) => [trap.id, trap.name + (trap.removed ? " (fjernet)" : "")]));
+      for (const [,state] of this._allTraps || []) {
+        const attributes = state.attributes;
+        const isTest = !!(attributes.test || (attributes.presentation && attributes.presentation.test));
+        if (isTest === (scope === "test")) entries.set(attributes.trap_id, attributes.trap_name);
+      }
+      const options = '<option value="">Alle feller</option>' + Array.from(entries, ([id,name]) =>
+        `<option value="${esc(id)}">${esc(name)}</option>`).join("");
+      if (select.innerHTML !== options) {
+        const selected = select.value;
+        select.innerHTML = options;
+        select.value = entries.has(selected) ? selected : "";
+      }
     }
     _attentionHTML(markup) {
       if (this._attentionMarkup === markup) return;
@@ -167,7 +191,7 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
       const color = /^#[a-fA-F0-9]{6}$/.test(p.color) ? p.color : "#495465";
       const actions = (p.actions || []).map((a) => ({...a, contextual:a.contextual !== false}));
       const buttons = (list) => list.map((a) => `<button class="act" data-service="${esc(a.service)}" data-trap="${esc(id)}" data-event="${esc(a.event_id)}" data-focus="${esc(id + a.service)}"${this._busy.has(id) ? " disabled" : ""}>${esc(a.label)}</button>`).join("");
-      return `<article class="tile ${esc(p.status)}${p.animations ? " animate" : ""}" data-id="${esc(id)}" style="--status:${color}" aria-label="${esc(p.name)}"><header class="tile-head"><div class="name">${esc(p.name)}</div>${p.location ? `<div class="location">${esc(p.location)}</div>` : ""}<div class="status">${esc(p.label)}</div>${p.warnings && p.warnings.length ? `<p class="warnings">${p.warnings.map(esc).join(" \u00b7 ")}</p>` : ""}</header>${p.show_scene ? `<img class="scene" src="/mousetrap_manager/images/${type}-${scene}.svg?v=${VERSION}" alt="" loading="lazy">` : ""}<div class="metrics">${(p.metrics || []).map((metric) => `<${metric.entity_id ? "button" : "div"} class="metric m-${esc(metric.key)}"${metric.entity_id ? ` data-entity="${esc(metric.entity_id)}" data-focus="${esc(id + metric.key)}"` : ""}><span class="m-label">${esc(metric.label)}</span><span class="m-value">${esc(metricText(this._hass,metric))}</span></${metric.entity_id ? "button" : "div"}>`).join("")}</div>${actions.some((a) => a.contextual) ? `<div class="actions">${buttons(actions.filter((a) => a.contextual))}</div>` : ""}${actions.some((a) => !a.contextual) ? `<details class="maintenance"${opened ? " open" : ""}><summary>Vedlikehold</summary><div class="actions">${buttons(actions.filter((a) => !a.contextual))}</div></details>` : ""}<p class="message" role="status">${esc(this._messages.get(id) || "")}</p></article>`;
+      return `<article class="tile ${esc(p.status)}${p.animations ? " animate" : ""}" data-id="${esc(id)}" style="--status:${color}" aria-label="${esc(p.name)}"><header class="tile-head"><div class="name">${esc(p.name)}${p.test ? " (testfelle)" : ""}</div>${p.location ? `<div class="location">${esc(p.location)}</div>` : ""}<div class="status">${esc(p.label)}</div>${p.warnings && p.warnings.length ? `<p class="warnings">${p.warnings.map(esc).join(" \u00b7 ")}</p>` : ""}</header>${p.show_scene ? `<img class="scene" src="/mousetrap_manager/images/${type}-${scene}.svg?v=${VERSION}" alt="" loading="lazy">` : ""}<div class="metrics">${(p.metrics || []).map((metric) => `<${metric.entity_id ? "button" : "div"} class="metric m-${esc(metric.key)}"${metric.entity_id ? ` data-entity="${esc(metric.entity_id)}" data-focus="${esc(id + metric.key)}"` : ""}><span class="m-label">${esc(metric.label)}</span><span class="m-value">${esc(metricText(this._hass,metric))}</span></${metric.entity_id ? "button" : "div"}>`).join("")}</div>${actions.some((a) => a.contextual) ? `<div class="actions">${buttons(actions.filter((a) => a.contextual))}</div>` : ""}${actions.some((a) => !a.contextual) ? `<details class="maintenance"${opened ? " open" : ""}><summary>Vedlikehold</summary><div class="actions">${buttons(actions.filter((a) => !a.contextual))}</div></details>` : ""}<p class="message" role="status">${esc(this._messages.get(id) || "")}</p></article>`;
     }
     async _action(button) {
       const id = button.dataset.trap;
@@ -185,14 +209,20 @@ button,select{font:inherit;color:inherit}button{min-height:44px;padding:8px 12px
       if (!this._hass || !this._hass.callWS) return;
       const request = ++this._journalRequest;
       const error = this.shadowRoot.querySelector(".journal-error");
-      const selected = this.shadowRoot.querySelector("select").value;
+      const selected = this.shadowRoot.querySelector(".journal-trap").value;
+      const scope = this.shadowRoot.querySelector(".journal-scope").value;
       const msg = {type:"mousetrap_manager/journal",limit:30};
+      if (scope === "test") msg.test = true;
       if (selected) msg.trap_id = selected;
       if (before) msg.before = before;
       error.textContent = "Laster hendelser\u2026";
       try {
         const result = await this._hass.callWS(msg);
         if (request !== this._journalRequest) return;
+        if (Array.isArray(result.traps)) {
+          this._journalTraps.set(scope, result.traps);
+          this._updateJournalFilters();
+        }
         const list = this.shadowRoot.querySelector(".journal-events");
         if (!before) list.textContent = "";
         (result.events || []).forEach((event) => {

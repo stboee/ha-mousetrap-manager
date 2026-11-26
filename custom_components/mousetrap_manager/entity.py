@@ -16,6 +16,10 @@ class TrapEntity(Entity):
         self.trap_id = trap_id
 
     @property
+    def available(self):
+        return self.trap_id is None or not self.manager.ledger.data["traps"][self.trap_id]["removed"]
+
+    @property
     def device_info(self):
         if self.trap_id is None:
             return DeviceInfo(

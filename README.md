@@ -2,7 +2,7 @@
 
 Videreutvikling av [Rodent Trap Card](https://github.com/kedube/ha-rodent-traps), med en Home Assistant-integrasjon som holder et felles, varig register over musefeller.
 
-**Utviklingsversjon: 0.4.0. Målplattform: Home Assistant 2026.10.4.** Testet programvare er ikke det samme som verifisert drift på en fysisk felle; se testplanen nedenfor før ordinær bruk.
+**Versjon 2026.11.26. Testet med Home Assistant 2026.10.4 og 2026.11.2.**
 
 ## Arbeidsflyt
 
@@ -41,19 +41,19 @@ Ikke bare kopier Python-filene: `frontend`, `translations`, `manifest.json` og `
 
 1. Start Home Assistant på nytt etter installasjon.
 2. Legg til **Mousetrap Manager** under Innstillinger → Enheter og tjenester.
-3. Åpne integrasjonens konfigurasjon → **Legg til snap-felle**.
+3. Åpne integrasjonens konfigurasjon → **Feller → Legg til klappfelle**.
 4. Velg Aqara-sensorens MQTT-enhet, et fellenavn og nøyaktig MQTT-topic. For den første kjente sensoren er topic `zigbee2mqtt/Vibrasjon`.
 5. Legg til denne dashboardressursen som **JavaScript-modul** under Innstillinger → Dashboards → Ressurser (avansert modus kan være nødvendig):
 
-`/mousetrap_manager/mousetrap-manager-card.js?v=0.5.0`
+`/mousetrap_manager/mousetrap-manager-card.js?v=2026.11.26`
 
 6. Last nettleseren/Companion-appen på nytt og legg til **Mousetrap Manager Card**. Kortet finner alle aktive feller automatisk, også feller som legges til senere.
 
 Ingen ekstra hjelpere per felle trengs. `hacs.json` beskriver integrasjonen; kortet følger integrasjonspakken.
 
-### Oppgradering fra 0.1.x–0.4.x
+### Oppgradering fra 0.1.x–0.5.x
 
-Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=0.5.0` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Ved oppgradering fra 0.1.x er åtebytte og sensorkontakt ukjent til de registreres. Tidspunkter og vedlikehold som allerede er registrert i 0.2.x beholdes.
+Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=2026.11.26` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere arkiverte feller vises som **Sesongpause**. Fra denne utgivelsen bruker vi versjonsformatet `ÅÅÅÅ.MM.DD` basert på publiseringsdatoen. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Ved oppgradering fra 0.1.x er åtebytte og sensorkontakt ukjent til de registreres. Tidspunkter og vedlikehold som allerede er registrert i 0.2.x beholdes.
 
 ## Kort og felles oppsett
 
@@ -61,34 +61,34 @@ Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjone
 type: custom:mousetrap-manager-card
 ```
 
-Alle aktive feller vises automatisk. Arkiverte feller skjules og beholder historikken. **Felles kortoppsett og terskler** i integrasjonen styrer tittel, sortering, maksimalt antall kolonner, oppsummering, illustrasjoner, animasjoner og valgte verdier. Layouten tilpasser seg skjermbredden. Per felle kan du velge navn, plassering, felleillustrasjon (for klappfeller) og **Overstyr felles visning og terskler**. Et tomt plasseringsfelt bruker kildeenhetens HA-område.
+Feller i bruk vises automatisk i fullvisningen, med tydelig merking av testfeller. Under **Kort og tilsyn → Fullvisning** velger du tittel, sortering, maksimalt antall kolonner, oppsummering, illustrasjoner, animasjoner og verdier. Under hver felle kan du beholde felles visning eller gi fellen egne innstillinger. Layouten tilpasser seg skjermbredden. Et tomt plasseringsfelt bruker kildeenhetens HA-område.
 
 Tidligere YAML-valg for navn, roller, handlinger, visning og et fast `traps`-utvalg brukes ikke lenger. Eksisterende kort viser en forklaring og følger det sentrale oppsettet; forenkle YAML som ovenfor. Dette er en bevisst endring fra 0.3.0. HAs egne `grid_options` og `visibility` kan brukes i tillegg til korttype og visningsmodus. Fullvisning og tilsyn kan brukes samtidig; øvrige visningsvalg styres i integrasjonen. Flere ulike oppsettsprofiler støttes ikke nå. Bare snap-feller og Victor M1 vises; de andre originaltypene er tatt ut av vår runtime.
 
 Store statusoverskrifter og tydelige symboler står øverst. Aktiv overvåking viser en oppspent snap-felle uten mus. Bevegelse viser en utløst felle med spørsmålstegn. **Overvåking aktiv** betyr at programvaren overvåker; vibrasjonssensoren kan ikke bevise fysisk armering. Integrasjonens ikon bruker lokalt medfølgende `mdi:rodent`.
 
-Fra 0.5.0 velges **Felleillustrasjon** ved registrering eller under **Konfigurer → Rediger eller arkiver felle → velg felle**:
+**Felleillustrasjon** velges ved registrering eller under **Konfigurer → Feller → Velg og administrer felle → Navn, sensor og vedlikehold**.
 
 - **Klassisk klappfelle** – dagens illustrasjon og standard for eksisterende feller.
 - **Rapp 2** – mørk, innkapslet klappfelle.
 - **Biltema Giljotin** – lys giljotinfelle med ventilasjonsspor og metallfjær.
 
-Valget gjelder bare utseendet og lagres per felle i integrasjonen. Det krever ikke **Overstyr felles visning**, og blir likt på PC og mobil. Alle tre overvåkes som vibrasjonsfeller med de samme kontrollhandlingene. Du kan bytte illustrasjon uten å opprette fellen på nytt; felle-ID, fangster, åtehistorikk, inspeksjon og ventende kontroll beholdes. Hver modell har bilder for overvåking, kontrollbehov, inspeksjon og utilgjengelig sensor. Statusen står fortsatt med stor tekst i kortets topp. Victor M1 beholder sin egen grafikk. De nye SVG-illustrasjonene er tegnet etter produktbildene som formreferanser; fotografiene distribueres ikke.
+Valget gjelder bare utseendet og lagres per felle i integrasjonen. Det vises likt på PC og mobil. Alle tre overvåkes som vibrasjonsfeller med de samme kontrollhandlingene. Du kan bytte illustrasjon uten å opprette fellen på nytt; felle-ID, fangster, åtehistorikk, inspeksjon og ventende kontroll beholdes. Hver modell har bilder for overvåking, kontrollbehov, inspeksjon og utilgjengelig sensor. Statusen står fortsatt med stor tekst i kortets topp. Victor M1 beholder sin egen grafikk. De nye SVG-illustrasjonene er tegnet etter produktbildene som formreferanser; fotografiene distribueres ikke.
 
-Oppsummeringen holder felletypene adskilt og viser bare registerets **Snap-fangster**, inkludert arkiverte snap-feller. Hver Victor-felle viser sine egne kildeverdier. Det beregnes ingen felles Snap-/Victor-sum eller ny Victor-sum.
+Oppsummeringen holder felletypene adskilt og viser bare registerets **Snap-fangster**, inkludert registrerte driftsfangster fra feller på sesongpause eller feller fjernet med historikk. Hver Victor-felle viser sine egne kildeverdier. Det beregnes ingen felles Snap-/Victor-sum eller ny Victor-sum.
 
-Hendelsesloggen kan filtreres per felle og henter eldre hendelser i sider. Den lagres på serveren, ikke i nettleseren. Vedlikehold ligger sammenfoldet i normaltilstand og vises med kontrollhandlingene når det trengs.
+Hendelsesloggen har **Driftslogg** og **Testlogg**. Begge kan filtreres per felle, også for feller som er fjernet med historikken i behold. Den lagres på serveren, ikke i nettleseren. Vedlikehold ligger sammenfoldet i normaltilstand og vises med kontrollhandlingene når det trengs.
 
 ## Kompakt tilsynskort på startsiden
 
 Fra 0.4.0 har samme customkort to visninger. **Fullvisning** beholdes på Musefeller-fanen. **Tilsyn** er en liten liste uten felleillustrasjoner, måleverdier, kvitteringsknapper eller hendelseslogg. Den viser bare feller som trenger oppmerksomhet, med navn og konkrete årsaker. Ett trykk åpner fullvisningen. Den passer i én murverkskolonne.
 
-1. Oppdater hele integrasjonen til 0.5.0 og start HA på nytt. Bruk ressursen med `?v=0.5.0`, og last nettleseren/appen på nytt. Fjern eventuelle eldre ressursoppføringer som laster en annen kopi av samme kort.
-2. Åpne **Konfigurer → Tilsynsvisning på startsiden**. Velg hvilke årsaker som skal vises. Standard: meldt Victor-fangst, ventende snap-kontroll, inspeksjonsfrist og utilgjengelig kilde/ukjent Victor-status. Gammel/ukjent sensorkontakt og lavt batteri kan slås på separat og bruker de eksisterende tersklene.
+1. Oppdater hele integrasjonen til 2026.11.26 og start HA på nytt. Bruk ressursen med `?v=2026.11.26`, og last nettleseren/appen på nytt. Fjern eventuelle eldre ressursoppføringer som laster en annen kopi av samme kort.
+2. Åpne **Konfigurer → Kort og tilsyn → Tilsyn på startsiden**. Velg hvilke årsaker som skal vises. Standard: meldt Victor-fangst, ventende snap-kontroll, inspeksjonsfrist og utilgjengelig kilde/ukjent Victor-status. Gammel/ukjent sensorkontakt og lavt batteri kan slås på separat og bruker de eksisterende tersklene.
 3. Legg inn adressestien til din Musefeller-fane, for eksempel `/lovelace/musefeller` eller `/dashboard-hjem/musefeller`. Bruk stien fra din egen adresse; en ny fane opprettes ikke automatisk. Tomt felt er tillatt under oppsett og gir en forklaring i kortet.
 4. Legg til et nytt **Mousetrap Manager**-kort på startsiden. Velg **Tilsyn på startsiden** i korteditoren. Editorens standardvalg setter opp HAs betingede synlighet med den faktiske tilsynsentiteten. Andre synlighetsbetingelser beholdes.
 
-Integrasjonen oppretter én felles binærsensor **Mousetrap Manager Tilsyn nødvendig** automatisk. Standard-ID er `binary_sensor.mousetrap_manager_tilsyn_nodvendig`; bruk ID-en som vises i korteditoren hvis du har omdøpt entiteten. Ingen hjelpere eller lister per felle må vedlikeholdes. Nye aktive feller tas med automatisk, og arkiverte utelates.
+Integrasjonen oppretter én felles binærsensor **Mousetrap Manager Tilsyn nødvendig** automatisk. Standard-ID er `binary_sensor.mousetrap_manager_tilsyn_nodvendig`; bruk ID-en som vises i korteditoren hvis du har omdøpt entiteten. Ingen hjelpere eller lister per felle må vedlikeholdes. Ordinære feller i bruk tas med automatisk. Feller på sesongpause og testfeller holdes utenfor.
 
 Ved YAML-oppsett brukes:
 
@@ -109,7 +109,7 @@ Fullvisningen bruker fortsatt:
 type: custom:mousetrap-manager-card
 ```
 
-Fangst prioriteres før kontrollbehov, deretter inspeksjon og kilde-/helseproblemer. En felle med flere årsaker får én rad med alle årsakene og telles én gang. Antallet er **feller som trenger tilsyn**, ikke en ny fangsttotal. Ingen nye fangsttellere eller langtidsstatistikksensorer legges til. Tilsynsvalgene er uavhengige av HA-varsler og mobilvarsling; eksisterende varsler forblir avslått som standard.
+Fangst prioriteres før kontrollbehov, deretter inspeksjon og kilde-/helseproblemer. En felle med flere årsaker får én rad med alle årsakene og telles én gang. Antallet er **feller som trenger tilsyn**, ikke en ny fangsttotal. Tilsynsvalgene er uavhengige av HA-varsler og mobilvarsling; eksisterende varsler forblir avslått som standard.
 
 Tilsynsstatus, ferdige tekster, sortering og årsaksvalg beregnes i integrasjonen. Kortet filtrerer ikke feller eller tolker sensorer selv. Hvis tilsynsentiteten er borte, utilgjengelig, gjenopprettet eller har et ukjent dataformat, viser kortet en feil fremfor å bruke gamle fangstopplysninger. Native synlighetsbetingelser som du legger til selv kan begrense når kortet er synlig.
 
@@ -117,7 +117,7 @@ Korteditoren viser nå versjonsnummeret. For teknisk kontroll kan `customElement
 
 ## Victor Smart-Kill Wi-Fi M1
 
-Installer og konfigurer [Victor-integrasjonen](https://github.com/toreamun/victorsmartkill-homeassistant) først. Velg deretter **Mousetrap Manager → Konfigurer → Legg til Victor M1**, og velg eksisterende Victor-enhet. Entitetene finnes automatisk via kildeintegrasjonens stabile identifikatorer, også etter omdøping av entitets-ID. Valgfrie kildefelt kan brukes hvis en eldre variant ikke oppdages automatisk.
+Installer og konfigurer [Victor-integrasjonen](https://github.com/toreamun/victorsmartkill-homeassistant) først. Velg deretter **Mousetrap Manager → Konfigurer → Feller → Legg til Victor M1**, og velg eksisterende Victor-enhet. Entitetene finnes automatisk via kildeintegrasjonens stabile identifikatorer, også etter omdøping av entitets-ID. Bruk **Victor-entiteter (avansert)** under den enkelte fellen hvis en eldre variant trenger manuelle kilder.
 
 Kortet leser eksisterende `capture`, `kills_present`, `total_kills`, `last_kill_date`, `last_report_date`, `battery_level` og `wireless_network_rssi`. Temperatur, escapes og retreats brukes ikke. Kildeverdiene kopieres ikke til nye tellersensorer, og det lages ingen ny API-klient eller innlogging. Gammel Victor-fangsthistorikk importeres ikke. Ingen ekstra langtidsstatistikk tilrettelegges for Victor.
 
@@ -125,14 +125,32 @@ Normalstatus er **Ingen fangst meldt**; dette beviser ikke fysisk armering. **Fa
 
 De godkjente M1-illustrasjonene viser normaltilstand, meldt fangst, inspeksjonsfrist og utilgjengelig kilde. Ukjent kildestatus vises som ukjent, aldri som ingen fangst.
 
-## Konfigurasjon og korrigering
+## Innstillinger
 
-- **Legg til snap-felle:** navn, MQTT-enhet, eksakt topic, felleillustrasjon, visning av åtealder og inspeksjonsinnstillinger. Wildcards er ikke tillatt.
-- **Rediger/arkiver felle:** endre navn/topic, velg felleillustrasjon eller arkiver/reaktiver. Stabil intern felle-ID bevarer registreringene gjennom navneendring. Samme sensor/topic kan ikke opprettes på nytt som en annen felle.
-- **Innstillinger og varsler:** hovedbryter for alle HA-varsler, eget valg for bevegelsesvarsler og sperretid 0–600 sekunder. For bare inspeksjonsvarsler: slå hovedbryteren på, bevegelsesvarsler av, og inspeksjonsvarsel på for ønskede feller.
-- **Angre siste fangst:** velg felle, se registreringstidspunktet og bekreft. Registreringen annulleres i loggen, tellere reduseres én gang, og fellens gjeldende kontrollstatus endres ikke. Hvis en ny fangst har kommet til mens skjemaet var åpent, må du åpne det på nytt.
+| Meny | Hva den styrer |
+|---|---|
+| **Feller** | Registrering, oppsett per felle, sesongpause, test, fjerning og angring av siste driftsfangst. |
+| **Varsler i Home Assistant** | Hovedbryter og felles standarder for varselpanelet. Hovedbryteren er av som standard. |
+| **Kort og tilsyn** | Felles oppsett for fullvisningen og årsaker og lenke for tilsyn på startsiden. |
+| **Driftsinnstillinger** | Sperretid for nye vibrasjoner, felles grenser for batteri og kontakt og gjenoppretting av Victor. |
 
-Angring er en administrativ handling. Det finnes ingen angretjeneste eller knapp i kortet.
+Under **Feller → Velg og administrer felle** ligger fellens inspeksjonsintervall og valg for åtealder under **Navn, sensor og vedlikehold**. Under **Varsler for denne fellen** kan du velge **Følg felles standard**, **På** eller **Av** for hver varslingstype. Tidligere lagrede inspeksjonsvarsler beholdes som valg for den enkelte fellen. Testfeller og feller på sesongpause vises ikke i tilsynskortet og gir ikke HA-varsler. Vibrasjonsovervåking i ordinær drift kan gi kontrollbehov i kortene selv om HA-varselet for bevegelse er av.
+
+### Sesongpause, test og fjerning
+
+| Handling | Virkning |
+|---|---|
+| **Sett på sesongpause** | Stanser oppfølging og skjuler fellen fra kortene. Oppsett og historikk beholdes. Avklar eventuell ventende kontroll først. |
+| **Ta i bruk igjen** | Klargjør fellen før du bekrefter. Inspeksjon registreres, og eventuell ny frist regnes fra klargjøringen. Kryss av hvis du også byttet åte. |
+| **Gjør til testfelle** | Nye hendelser går til testloggen. Tidligere driftshistorikk beholdes som standard. Du kan velge å flytte hele den gamle loggen til test hvis den bare inneholder prøver. |
+| **Ta i ordinær bruk** | Nye hendelser registreres i driftsloggen. Tidligere testhendelser forblir tilgjengelige i testloggen. |
+| **Nullstill testfelle** | Sletter testhendelser og nullstiller testfangster, kontrollstatus og registrert vedlikehold. Oppsett og eventuell tidligere driftshistorikk beholdes. |
+| **Fjern felle, behold historikk** | Fjerner fellen fra oppsettet og frigjør kilden til gjenbruk. Tidligere hendelser og fangster er fortsatt tilgjengelige i logg og teller. |
+| **Slett felle og historikk** | Sletter hendelsene i Mousetrap Manager. Fellens bekreftede driftsfangster trekkes fra den samlede klappfelletelleren. Dialogen viser antallet før bekreftelse. |
+
+Sletting og nullstilling gjelder lagringen i Mousetrap Manager. Eksisterende data i Home Assistant Recorder, Zigbee2MQTT og Victor-integrasjonen håndteres av de respektive systemene. Victor-fangster kommer fra Victor-integrasjonen og kan ikke nullstilles gjennom Mousetrap Manager.
+
+**Angre siste driftsfangst** under **Feller** krever bekreftelse av den aktuelle registreringen. Telleren reduseres én gang, og det logges at fangsten ble annullert. Gjeldende kontrollstatus beholdes.
 
 ## Åte og periodisk inspeksjon
 
@@ -158,13 +176,13 @@ advanced:
 
 Se [Zigbee2MQTTs innstillinger](https://www.zigbee2mqtt.io/guide/configuration/all-settings.html). Legg valget inn i en eventuell eksisterende `advanced`-seksjon. Meldinger uten gyldig `last_seen` gir ikke et oppdiktet kontakttidspunkt. Batteri- og andre rapporter kan oppdatere kontakt uten bevegelse. Gamle meldinger og retained-meldinger bruker sitt opprinnelige tidspunkt; retained bevegelse utløser aldri en ny kontroll. Vanlig HA-oppdatering eller restart teller ikke som sensorkontakt.
 
-Siste sensorkontakt og siste bevegelse er forskjellige opplysninger. Kontakttidspunktet beviser heller ikke at fellen er mekanisk armert. Felles kortoppsett har konfigurerbare terskler for gammel kontakt (standard 24 timer) og overskredet kontaktfrist (72 timer). 0 slår den aktuelle terskelen av. Velg realistiske verdier for sensorens rapporteringsintervall. Gammel rapportering merkes separat fra en kildeintegrasjon som faktisk er utilgjengelig. Batteriterskelen er som standard 20 %. Per-felle-overstyring er mulig. Valgfrie varsler for kontakt og batteri krever både hovedbryteren og eget valg under Innstillinger og varsler; begge står av som standard.
+Siste sensorkontakt og siste bevegelse er forskjellige opplysninger. Kontakttidspunktet beviser heller ikke at fellen er mekanisk armert. **Driftsinnstillinger → Felles grenser for batteri og sensorkontakt** har terskler for gammel kontakt (standard 24 timer) og overskredet kontaktfrist (72 timer). 0 slår den aktuelle terskelen av. Velg realistiske verdier for sensorens rapporteringsintervall. Gammel rapportering merkes separat fra en kildeintegrasjon som faktisk er utilgjengelig. Batteriterskelen er som standard 20 %. Per-felle-overstyring er mulig. Varsler for kontakt og batteri kan velges under **Varsler i Home Assistant** eller for den enkelte fellen, med felles hovedbryter som overstyrer.
 
 ## Victor – automatisk gjenoppretting
 
 Dette er et valgfritt tillegg for en **eksisterende Victor Smart-Kill-integrasjon**. Det oppretter ingen ny Victor-tilkobling og krever ingen ekstra innlogging. Funksjonen er avslått som standard og kjører på HA-serveren uten åpent dashboard.
 
-Åpne **Mousetrap Manager → Konfigurer → Victor – automatisk gjenoppretting**:
+Åpne **Mousetrap Manager → Konfigurer → Driftsinnstillinger → Victor – automatisk gjenoppretting**:
 
 1. Velg den eksisterende Victor-integrasjonen/kontoen og aktiver funksjonen.
 2. Velg hvor lenge den skal være sammenhengende utilgjengelig før reload. Standard er **20 minutter**, område 1–1440 minutter.
@@ -183,9 +201,11 @@ Diagnostikkentiteten **Victor automatisk gjenoppretting** viser status, antall f
 
 Integrasjonen skriver registeret gjennom Home Assistants `Store` til `.storage/mousetrap_manager.<entry-id>`. Lagret kontrollstatus, sperretid, fangster og annulleringer leses før entitetene opprettes. Integrasjonen kjører uten åpne dashboards. Alle skjermer leser samme HA-entiteter.
 
-Snap-fangstteller per felle og Snap-telleren er numeriske sensorer med `state_class: total`. De kan gå ned ved angring. Med Recorder aktiv og sensorene inkludert i opptaket kan HA samle langtidsstatistikk. En angring påvirker statistikken når den utføres; vi omskriver ikke tidligere statistikkperioder.
+Snap-fangstteller per felle og Snap-telleren er numeriske sensorer med `state_class: total`. De kan gå ned ved angring. Med Recorder aktiv og sensorene inkludert i opptaket kan HA samle langtidsstatistikk. En angring, sletting eller flytting av eldre driftsfangster til test kan gi et fall i grafen på endringstidspunktet. Tidligere statistikkperioder i Recorder beholdes. Testfangster vises per testfelle i fullvisningen og inngår ikke i de ordinære fangsttellerne.
 
-Detaljloggen lagres i vårt register uavhengig av Recorders vanlige historikkopprydding. Ingen automatisk sletting av fangsthendelser er konfigurert i denne versjonen. Ta vanlig HA-sikkerhetskopi som inkluderer konfigurasjonsmappen og `.storage`. En sikkerhetskopi av bare dette Git-repositoriet inneholder ikke fellenes driftsdata. Fjerning av selve integrasjonen er en annen handling enn å arkivere en felle; behold sikkerhetskopi ved reinstallasjon.
+**Klappfeller i bruk** og **Victor-feller i bruk** er egne sensorer med `state_class: measurement`. De teller ordinære feller som er satt ut, også om en kilde midlertidig er utilgjengelig. Recorder bygger statistikk over antall aktive feller fra oppgraderingen.
+
+Detaljloggen lagres i vårt register uavhengig av Recorders vanlige historikkopprydding. Ingen automatisk sletting av fangsthendelser er konfigurert i denne versjonen. Ta vanlig HA-sikkerhetskopi som inkluderer konfigurasjonsmappen og `.storage`. En sikkerhetskopi av bare dette Git-repositoriet inneholder ikke fellenes driftsdata. Fjerning av selve integrasjonen er en annen handling enn å sette en felle på sesongpause; behold sikkerhetskopi ved reinstallasjon.
 
 ## Sensorstøtte og grenser
 
@@ -210,7 +230,7 @@ npx playwright install chromium
 npm test
 ```
 
-Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene dekker også kompakt tilsyn, synlighet, feilstatus og editorens oppsett av native HA-betingelser. De dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk registrering/arkivering, handlinger, kildelesing, mobilbredde, logg og syntaks. De tidligere testene av originalkortets frontendmodell ble erstattet da modellen flyttet til Python i 0.3.0; de finnes i tag v0.2.1. Originalprosjektets publiseringstester ligger bare som referanse i `docs/upstream/tests`.
+Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene dekker også kompakt tilsyn, synlighet, feilstatus og editorens oppsett av native HA-betingelser. De dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk visning av feller og sesongpause, handlinger, kildelesing, mobilbredde, logg og syntaks. De tidligere testene av originalkortets frontendmodell ble erstattet da modellen flyttet til Python i 0.3.0; de finnes i tag v0.2.1. Originalprosjektets publiseringstester ligger bare som referanse i `docs/upstream/tests`.
 
 `scripts/derive_card.py` dokumenterer den opprinnelige avledningen fra den låste originalfilen. Begge leverte kopier av vår kortfil skal være identiske: `dist/mousetrap-manager-card.js` og filen i integrasjonens `frontend`-mappe. Originalfilen i `dist/rodent-trap-card.js` beholdes uendret som sammenligningsgrunnlag.
 

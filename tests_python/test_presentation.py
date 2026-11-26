@@ -189,7 +189,7 @@ async def test_options_register_victor_without_mqtt_and_keep_existing_settings(e
     assert config["type"] == "victor" and "topic" not in config
     assert config["inspection_interval_days"] == 14
     assert not result["data"]["notifications_enabled"]
-    result = await flow.async_step_display({"stale_after_hours": 100, "offline_after_hours": 24})
+    result = await flow.async_step_thresholds({"stale_after_hours": 100, "offline_after_hours": 24})
     assert result["errors"]["offline_after_hours"] == "invalid_thresholds"
 
 

@@ -16,6 +16,7 @@ from homeassistant.util import dt as dt_util
 from .attention import attention_overview
 from .const import DEFAULT_COOLDOWN, DOMAIN, SIGNAL_UPDATED, STORAGE_VERSION
 from .ledger import Ledger, LedgerError, instant
+from .notification_preferences import notice_enabled
 from .presentation import display_settings, presentation, source_entities
 from .victor_recovery import VictorRecovery
 
@@ -53,11 +54,11 @@ class TrapManager:
 
     @property
     def traps(self):
-        return self.entry.options.get("traps", [])
-
-    @property
-    def notifications_enabled(self):
-        return self.entry.options.get("notifications_enabled", False)
+        return [
+            config
+            for config in self.entry.options.get("traps", [])
+            if not self.ledger.data["traps"].get(config["id"], {}).get("removed")
+        ]
 
     async def async_start(self):
         saved = await self._store.async_load()
@@ -65,10 +66,12 @@ class TrapManager:
         await self._change(lambda ledger: ledger.sync_traps(self.traps, dt_util.utcnow().isoformat()))
         try:
             for trap in self.traps:
-                if trap.get("archived") or trap.get("type", "snap") != "snap":
+                if trap.get("type", "snap") != "snap":
                     continue
 
                 async def message_received(message, trap_id=trap["id"]):
+                    if self._stopping or self.ledger.data["traps"][trap_id]["archived"]:
+                        return
                     try:
                         payload = json.loads(message.payload)
                     except ValueError, TypeError:
@@ -148,6 +151,28 @@ class TrapManager:
     async def async_undo(self, trap_id, capture_id):
         return await self._change(lambda ledger: ledger.undo(trap_id, capture_id, dt_util.utcnow().isoformat()))
 
+    async def async_manage_trap(self, trap_id, stamp, action, **options):
+        """Validate the confirmation and commit lifecycle and journal changes together."""
+        now = dt_util.utcnow().isoformat()
+        cooldown = self.entry.options.get("cooldown_seconds", DEFAULT_COOLDOWN)
+
+        def apply(ledger):
+            if ledger.management_stamp(trap_id) != stamp:
+                raise LedgerError("Fellen ble endret. Åpne handlingen på nytt.")
+            match action:
+                case "pause" | "resume":
+                    return ledger.set_season_pause(trap_id, action == "pause", now, cooldown, **options)
+                case "start_test" | "stop_test":
+                    return ledger.set_test_mode(trap_id, action == "start_test", now, **options)
+                case "reset_test":
+                    return ledger.reset_test(trap_id, now)
+                case "remove" | "delete":
+                    return ledger.remove_trap(trap_id, now, keep_history=action == "remove")
+                case _:
+                    raise LedgerError("Ukjent fellehandling.")
+
+        return await self._change(apply)
+
     async def async_maintenance(self, trap_id, action, event_id=None):
         trap = self.ledger.summary(trap_id)
         field = "bait_event_id" if action == "bait_replaced" else "inspection_event_id"
@@ -186,7 +211,7 @@ class TrapManager:
         if self._stopping:
             return
         entity_id = event.data.get("entity_id")
-        if any(entity_id in source_entities(self.hass, t).values() for t in self.traps if not t.get("archived")):
+        if any(entity_id in source_entities(self.hass, t).values() for t in self.traps):
             async_dispatcher_send(self.hass, SIGNAL_UPDATED)
             self._sync_notifications()
 
@@ -205,16 +230,18 @@ class TrapManager:
         self.victor_recovery.async_request_check()
 
     def _sync_notifications(self):
+        configs = {config["id"]: config for config in self.traps}
         for trap_id, trap in self.ledger.data["traps"].items():
             notification_id = f"{DOMAIN}_{trap_id}"
-            movement_enabled = self.notifications_enabled and self.entry.options.get(
-                "movement_notifications_enabled", True
-            )
-            if movement_enabled and trap["pending_event_id"] and not trap["archived"]:
+            config = configs.get(trap_id)
+            active = config is not None and not trap["archived"] and not trap["test"]
+            options = self.entry.options
+            if active and trap["pending_event_id"] and notice_enabled(options, config, "movement"):
                 if self._notified.get(trap_id) != trap["pending_event_id"]:
                     persistent_notification.async_create(
                         self.hass,
-                        f"Bevegelse er registrert ved **{trap['name']}**. Kontroller og klargjør fellen, og kvitter i musefellekortet.",
+                        f"Bevegelse er registrert ved **{trap['name']}**. "
+                        "Kontroller og klargjør fellen, og kvitter i musefellekortet.",
                         title="Musefelle må kontrolleres",
                         notification_id=notification_id,
                     )
@@ -222,20 +249,16 @@ class TrapManager:
             else:
                 persistent_notification.async_dismiss(self.hass, notification_id)
                 self._notified.pop(trap_id, None)
-            config = next((t for t in self.traps if t["id"] == trap_id), {})
-            summary = self.summary(trap_id)
+            summary = self.summary(trap_id) if active else None
             key = f"inspection_{trap_id}"
             notice = f"{DOMAIN}_inspection_{trap_id}"
-            if (
-                self.notifications_enabled
-                and config.get("inspection_notifications_enabled", False)
-                and summary["inspection_due"]
-            ):
+            if summary and summary["inspection_due"] and notice_enabled(options, config, "inspection"):
                 deadline = summary["next_inspection"] or "unknown"
                 if self._notified.get(key) != deadline:
                     persistent_notification.async_create(
                         self.hass,
-                        f"**{trap['name']}** har nådd fristen for inspeksjon. Kontroller fellen og åtet, og kvitter i musefellekortet.",
+                        f"**{trap['name']}** har nådd fristen for inspeksjon. "
+                        "Kontroller fellen og åtet, og kvitter i musefellekortet.",
                         title="Tid for inspeksjon av musefelle",
                         notification_id=notice,
                     )
@@ -244,13 +267,8 @@ class TrapManager:
                 persistent_notification.async_dismiss(self.hass, notice)
                 self._notified.pop(key, None)
             health_notice = f"{DOMAIN}_health_{trap_id}"
-            warnings = summary["presentation"]["warnings"]
-            if (
-                self.notifications_enabled
-                and self.entry.options.get("health_notifications_enabled", False)
-                and warnings
-                and not trap["archived"]
-            ):
+            warnings = summary["presentation"]["warnings"] if summary else []
+            if warnings and notice_enabled(options, config, "health"):
                 message = " · ".join(warnings)
                 if self._notified.get(health_notice) != message:
                     persistent_notification.async_create(

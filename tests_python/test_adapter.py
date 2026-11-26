@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.components.sensor import SensorStateClass
+from homeassistant.config_entries import ConfigEntries
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -14,13 +15,17 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.mousetrap_manager.binary_sensor import PendingCheck
 from custom_components.mousetrap_manager.config_flow import MousetrapOptionsFlow, valid_topic
+from custom_components.mousetrap_manager.ledger import LedgerError
 from custom_components.mousetrap_manager.manager import TrapManager
-from custom_components.mousetrap_manager.sensor import CatchCount, MaintenanceSensor, TrapStatus
+from custom_components.mousetrap_manager.notification_preferences import notice_enabled
+from custom_components.mousetrap_manager.sensor import CatchCount, MaintenanceSensor, TrapStatus, TrapsInUse
 
 
 @pytest.fixture
 async def hass(tmp_path):
     instance = HomeAssistant(str(tmp_path))
+    instance.config_entries = ConfigEntries(instance, {})
+    await instance.config_entries.async_initialize()
     dr.async_setup(instance)
     await dr.async_load(instance)
     await er.async_load(instance)
@@ -108,6 +113,52 @@ async def test_save_failure_does_not_publish_an_uncommitted_capture(hass, entry)
     manager._store.async_save.side_effect = None
     assert await manager.async_acknowledge("a", pending, True)
     assert len(manager.ledger.catches()) == 1
+
+
+async def test_trap_actions_guard_new_events_and_update_operational_counts(hass, entry):
+    manager = await start(hass, entry)
+    count = TrapsInUse(manager, "snap", "Klappfeller i bruk")
+    stamp = manager.ledger.management_stamp("a")
+    assert count.native_value == 1
+    await manager._change(lambda ledger: ledger.movement("a", "2026-11-26T10:00:00+00:00"))
+    with pytest.raises(LedgerError):
+        await manager.async_manage_trap("a", stamp, "delete")
+    assert manager.ledger.summary("a")["pending_event_id"] and count.native_value == 1
+    await manager.async_acknowledge("a", manager.ledger.summary("a")["pending_event_id"], True)
+
+    async def manage(action):
+        return await manager.async_manage_trap("a", manager.ledger.management_stamp("a"), action)
+
+    await manage("pause")
+    assert count.native_value == 0
+    await manage("resume")
+    assert count.native_value == 1
+    await manage("start_test")
+    assert count.native_value == 0 and CatchCount(manager).native_value == 1
+    entry.options["notifications_enabled"] = True
+    with patch("custom_components.mousetrap_manager.manager.persistent_notification.async_create") as create:
+        await manager._change(lambda ledger: ledger.movement("a", "2026-11-26T11:00:00+00:00"))
+        assert manager.ledger.summary("a")["pending_event_id"]
+        assert manager.attention()["count"] == 0
+        create.assert_not_called()
+        await manager.async_acknowledge("a", manager.ledger.summary("a")["pending_event_id"], True)
+    assert TrapStatus(manager, entry.options["traps"][0]).extra_state_attributes["catch_count"] == 1
+    assert CatchCount(manager).native_value == 1
+    await manage("reset_test")
+    assert manager.ledger.summary("a")["catch_count"] == 0
+    await manage("delete")
+    assert manager.traps == [] and CatchCount(manager).native_value == 0
+    manager.async_stop()
+
+
+def test_notice_overrides_obey_master_and_keep_legacy_inspection_opt_out():
+    options = {"notifications_enabled": True, "inspection_notifications_enabled": True}
+    trap = {"inspection_notifications_enabled": False, "notification_overrides": {"movement": "off", "health": "on"}}
+    assert not notice_enabled(options, trap, "inspection")
+    assert not notice_enabled(options, trap, "movement")
+    assert notice_enabled(options, trap, "health")
+    assert notice_enabled(options, {}, "inspection")
+    assert not notice_enabled({**options, "notifications_enabled": False}, trap, "health")
 
 
 async def test_notifications_default_off_and_optional_notice_has_stable_id(hass, entry):

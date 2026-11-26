@@ -89,6 +89,30 @@ export default async function run(browser) {
     q(".more").click();await new Promise((r)=>setTimeout(r,5));
     check("journal supports pagination",ws[ws.length-1].before,"older");
     check("journal ends pagination at last page",q(".more").hidden,true);
+
+    const savedWS=hass.callWS;
+    const operational=hass.states["sensor.snap"];
+    hass.states["sensor.snap"]=state("pending",{...operational.attributes,test:true,presentation:{
+      ...pending,test:true,metrics:[{key:"catches",label:"Testfangster",value:1}]
+    }});
+    hass.callWS=async(msg)=>{
+      ws.push(msg);
+      return {events:[],next_cursor:null,traps:msg.test ? [{id:"test_old",name:"Fjernet prøve",removed:true}] : []};
+    };
+    update();
+    check("test trap remains visible with its own marked catch count",
+      [q('[data-id="a"] .name').textContent,q('[data-id="a"] .m-catches .m-label').textContent],
+      ["Loft (testfelle)","Testfangster"]);
+    check("test trap is excluded from the operational count",q(".summary").textContent.includes("0 snap-feller"),true);
+    q(".journal-scope").value="test";q(".journal-scope").dispatchEvent(new Event("change"));
+    await new Promise((r)=>setTimeout(r,5));
+    check("test scope requests the separate journal",ws[ws.length-1].test,true);
+    check("retained history of a removed trap remains filterable",
+      q('.journal-trap option[value="test_old"]').textContent,"Fjernet prøve (fjernet)");
+    check("switching log scope clears the former trap filter",q(".journal-trap").value,"");
+    q(".journal-scope").value="drift";q(".journal-scope").dispatchEvent(new Event("change"));
+    hass.states["sensor.snap"]=operational;hass.callWS=savedWS;update();
+
     hass.states["sensor.victor"].attributes.presentation.name='<img src=x onerror=alert(1)>';update();
     check("trap names are escaped",q(".tile-head img"),null);
     const editor=customElements.get("mousetrap-manager-card").getConfigElement();editor.setConfig({});

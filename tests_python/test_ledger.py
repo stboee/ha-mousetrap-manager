@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from custom_components.mousetrap_manager.ledger import Ledger, LedgerError
+from custom_components.mousetrap_manager.ledger import Ledger, LedgerError, instant
 
 NOW = datetime(2026, 10, 28, 10, 0, tzinfo=timezone.utc)
 
@@ -125,6 +125,72 @@ def test_archiving_or_removing_trap_keeps_lifetime_total_and_identity():
     assert ledger.summary("a")["archived"]
     assert ledger.summary("b")["archived"]
     assert not ledger.movement("a", at(200))
+
+
+def test_season_pause_guards_pending_and_resumes_from_setup_with_optional_bait():
+    ledger = register()
+    ledger.movement("a", at(1))
+    with pytest.raises(LedgerError, match="ventende"):
+        ledger.set_season_pause("a", True, at(2), 30)
+    ledger.acknowledge("a", ledger.summary("a")["pending_event_id"], True, at(3), 30)
+    assert ledger.set_season_pause("a", True, at(4), 30)
+    restored = Ledger(ledger.data)
+    restored.sync_traps([{"id": "a", "name": "Loft"}], at(100))
+    assert restored.summary("a")["archived"]
+    assert not restored.movement("a", at(101))
+    restored.set_season_pause("a", False, at(200), 30, replace_bait=True)
+    summary = restored.maintenance("a", at(200), 1)
+    assert summary["last_inspection"] == summary["last_bait_replaced"] == at(200)
+    assert instant(summary["next_inspection"]) - instant(at(200)) == timedelta(days=1)
+    assert summary["catch_count"] == 1 and not summary["archived"]
+    assert not restored.movement("a", at(229))
+    assert restored.movement("a", at(230))
+
+
+def test_test_mode_and_reset_keep_operational_catches_separate():
+    ledger = register()
+    confirm(ledger, "a")
+    ledger.set_test_mode("a", True, at(60))
+    confirm(ledger, "a", second=61)
+    assert len(ledger.catches()) == 1
+    assert ledger.summary("a")["catch_count"] == 1
+    assert all(not event.get("test") for event in ledger.journal())
+    assert any(event["type"] == "capture_confirmed" for event in ledger.journal(test=True))
+    assert ledger.replace_bait("a", ledger.summary("a")["bait_event_id"], at(70))
+    assert ledger.movement("a", at(100))
+    pending = ledger.summary("a")["pending_event_id"]
+    ledger.reset_test("a", at(102))
+    summary = ledger.summary("a")
+    assert summary["test"] and summary["catch_count"] == 0
+    assert summary["last_inspection"] is summary["last_bait_replaced"] is summary["pending_event_id"] is None
+    assert ledger.journal(test=True) == []
+    assert len(ledger.catches()) == 1
+    with pytest.raises(LedgerError):
+        ledger.acknowledge("a", pending, True, at(103), 0)
+    ledger.set_test_mode("a", False, at(104))
+    assert ledger.summary("a")["catch_count"] == 1
+
+
+def test_move_test_history_and_both_removal_variants():
+    ledger = register()
+    confirm(ledger, "a")
+    confirm(ledger, "b")
+    ledger.set_test_mode("b", True, at(60), move_history=True)
+    assert len(ledger.catches()) == 1
+    assert len(ledger.catches("b", test=True)) == 1
+    ledger.set_test_mode("b", False, at(61))
+    confirm(ledger, "b", second=62)
+    ledger.remove_trap("a", at(100), keep_history=True)
+    assert len(ledger.catches()) == 2
+    assert ledger.journal("a")[0]["type"] == "removed"
+    assert any(trap["id"] == "a" and trap["removed"] for trap in ledger.journal_traps())
+    ledger.remove_trap("b", at(101), keep_history=False)
+    assert len(ledger.catches()) == 1
+    assert not ledger.journal("b") and not ledger.journal("b", test=True)
+    assert ledger.summary("b")["name"] == "Fjernet felle"
+    restored = Ledger(ledger.data)
+    restored.sync_traps([{"id": "b", "name": "Utgått"}], at(102))
+    assert restored.summary("b")["removed"] and restored.summary("b")["name"] == "Fjernet felle"
 
 
 def test_undo_to_zero_never_creates_a_negative_counter():

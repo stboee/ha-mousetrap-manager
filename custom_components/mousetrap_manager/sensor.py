@@ -13,7 +13,13 @@ from .victor_recovery import RECOVERY_STATES
 
 async def async_setup_entry(hass, entry, async_add_entities):
     manager = hass.data[DOMAIN][entry.entry_id]
-    entities = [CatchCount(manager), VictorRecoveryStatus(manager), DashboardSettings(manager)]
+    entities = [
+        CatchCount(manager),
+        VictorRecoveryStatus(manager),
+        DashboardSettings(manager),
+        TrapsInUse(manager, "snap", "Klappfeller i bruk"),
+        TrapsInUse(manager, "victor", "Victor-feller i bruk"),
+    ]
     for config in manager.traps:
         entities.append(TrapStatus(manager, config))
         if config.get("type", "snap") == "snap":
@@ -43,6 +49,27 @@ class CatchCount(TrapEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         return {"mousetrap_manager_total": True} if self.trap_id is None else None
+
+
+class TrapsInUse(TrapEntity, SensorEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:counter"
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, manager, kind, name):
+        super().__init__(manager)
+        self.kind = kind
+        self._attr_name = name
+        self._attr_unique_id = f"{DOMAIN}_{manager.entry.entry_id}_{kind}_in_use"
+
+    @property
+    def native_value(self):
+        traps = self.manager.ledger.data["traps"]
+        return sum(
+            config.get("type", "snap") == self.kind and not trap["archived"] and not trap["test"]
+            for config in self.manager.traps
+            if (trap := traps.get(config["id"])) is not None
+        )
 
 
 class VictorRecoveryStatus(TrapEntity, SensorEntity):
@@ -87,7 +114,18 @@ class DashboardSettings(TrapEntity, SensorEntity):
 
 class TrapStatus(TrapEntity, SensorEntity):
     _attr_icon = "mdi:rodent"
-    _attr_name = "Status"
+    _attr_translation_key = "trap_status"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [
+        "monitoring",
+        "pending",
+        "capture",
+        "inspection",
+        "warning",
+        "source_unavailable",
+        "source_unknown",
+        "archived",
+    ]
 
     def __init__(self, manager, config):
         super().__init__(manager, config["id"])
@@ -109,6 +147,7 @@ class TrapStatus(TrapEntity, SensorEntity):
             "source_device_id": self.config.get("device_id"),
             "trap_name": trap["name"],
             "archived": trap["archived"],
+            "test": trap["test"],
             "presentation": trap["presentation"],
             "pending_event_id": trap["pending_event_id"],
             "catch_count": trap["catch_count"],
@@ -167,5 +206,8 @@ class MaintenanceSensor(TrapEntity, SensorEntity):
 
     @property
     def native_value(self):
-        value = self.manager.summary(self.trap_id)[self.key]
+        summary = self.manager.summary(self.trap_id)
+        if self.state_class and summary["test"]:
+            return None
+        value = summary[self.key]
         return value if self.is_age or value is None else datetime.fromisoformat(value)

@@ -7,7 +7,7 @@ import pytest
 from homeassistant import loader
 from homeassistant.config_entries import ConfigEntries, ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry, entity_registry
+from homeassistant.helpers import device_registry, entity_registry, frame
 from homeassistant.setup import async_setup_component
 
 
@@ -17,6 +17,7 @@ async def test_native_setup_creates_entities_and_unloads(tmp_path, recovery_enab
     (tmp_path / "custom_components").symlink_to(Path("custom_components").resolve(), target_is_directory=True)
     hass = HomeAssistant(str(tmp_path))
     loader.async_setup(hass)
+    frame.async_setup(hass)
     hass.config_entries = ConfigEntries(hass, {})
     await hass.config_entries.async_initialize()
     device_registry.async_setup(hass)
@@ -80,6 +81,10 @@ async def test_native_setup_creates_entities_and_unloads(tmp_path, recovery_enab
             states = hass.states.async_all()
             assert len([s for s in states if s.attributes.get("mousetrap_manager")]) == (2 if include_victor else 1)
             assert len([s for s in states if s.attributes.get("state_class") == "total"]) == 2
+            snap_count = hass.states.get("sensor.mousetrap_manager_klappfeller_i_bruk")
+            victor_count = hass.states.get("sensor.mousetrap_manager_victor_feller_i_bruk")
+            assert snap_count.state == "1" and snap_count.attributes["state_class"] == "measurement"
+            assert victor_count.state == str(int(include_victor))
             assert any(s.entity_id.startswith("binary_sensor.") and s.state == "off" for s in states)
             assert len([s for s in states if s.entity_id.startswith("button.")]) == (4 if include_victor else 2)
             ages = [s for s in states if s.attributes.get("device_class") == "duration"]
@@ -116,9 +121,41 @@ async def test_native_setup_creates_entities_and_unloads(tmp_path, recovery_enab
                 await hass.async_block_till_done()
                 assert hass.states.get(attention.entity_id).state == "on"
             recovery = manager.victor_recovery
-            diagnostic = [s for s in states if s.attributes.get("device_class") == "enum"]
+            diagnostic = [
+                s
+                for s in states
+                if s.attributes.get("device_class") == "enum" and not s.attributes.get("mousetrap_manager")
+            ]
             assert len(diagnostic) == 1
             assert diagnostic[0].state == ("starting" if recovery_enabled else "disabled")
+            if include_victor and not recovery_enabled:
+                # Exercise the actual Home Assistant options flow, including its reload and registry cleanup.
+                async def remove_victor():
+                    flow = hass.config_entries.options
+                    result = await flow.async_init(entry.entry_id)
+                    for input_data in (
+                        {"next_step_id": "traps"},
+                        {"next_step_id": "edit_trap"},
+                        {"trap_id": "v"},
+                        {"next_step_id": "trap_actions"},
+                        {"action": "remove"},
+                        {"confirm": True},
+                    ):
+                        result = await flow.async_configure(result["flow_id"], input_data)
+                    assert result["type"] == "create_entry"
+
+                await remove_victor()
+                await hass.async_block_till_done()
+                assert [trap["id"] for trap in entry.options["traps"]] == ["a"]
+                assert hass.states.get(victor_count.entity_id).state == "0"
+                assert hass.states.get(capture.entity_id).state == "on"
+                assert device_registry.async_get(hass).async_get(device.id)
+                assert not device_registry.async_get(hass).async_get_device_by_identifier(
+                    ("mousetrap_manager", "v"), entry.entry_id
+                )
+                manager = hass.data["mousetrap_manager"][entry.entry_id]
+                assert manager.ledger.journal("v")[0]["type"] == "removed"
+                recovery = manager.victor_recovery
             assert await hass.config_entries.async_unload(entry.entry_id)
             assert recovery._stopped
     finally:

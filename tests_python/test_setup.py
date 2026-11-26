@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntries
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
@@ -19,6 +20,8 @@ from custom_components.mousetrap_manager.sensor import CatchCount
 @pytest.fixture
 async def env(tmp_path):
     hass = HomeAssistant(str(tmp_path))
+    hass.config_entries = ConfigEntries(hass, {})
+    await hass.config_entries.async_initialize()
     dr.async_setup(hass)
     await dr.async_load(hass)
     await er.async_load(hass)

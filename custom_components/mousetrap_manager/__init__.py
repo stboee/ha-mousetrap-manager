@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 
 from .const import CARD_URL, DOMAIN, PLATFORMS
 from .ledger import LedgerError
@@ -66,6 +67,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await manager.async_start()
     hass.data[DOMAIN][entry.entry_id] = manager
     try:
+        devices = dr.async_get(hass)
+        for trap_id, trap in manager.ledger.data["traps"].items():
+            if trap["removed"] and (
+                device := devices.async_get_device_by_identifier((DOMAIN, trap_id), entry.entry_id)
+            ):
+                devices.async_remove_device(device.id)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
         await manager.async_shutdown()
@@ -94,6 +101,7 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry):
         vol.Optional("trap_id"): str,
         vol.Optional("before"): str,
         vol.Optional("limit", default=50): vol.All(int, vol.Range(min=1, max=200)),
+        vol.Optional("test", default=False): bool,
     }
 )
 @callback
@@ -104,10 +112,17 @@ def websocket_journal(hass, connection, msg):
         connection.send_error(msg["id"], "not_loaded", "Mousetrap Manager is not loaded")
         return
     try:
-        events = managers[0].ledger.journal(msg.get("trap_id"), msg.get("before"), msg["limit"])
+        ledger = managers[0].ledger
+        test = msg.get("test", False)
+        events = ledger.journal(msg.get("trap_id"), msg.get("before"), msg["limit"], test=test)
     except LedgerError as err:
         connection.send_error(msg["id"], "invalid_cursor", str(err))
         return
     connection.send_result(
-        msg["id"], {"events": events, "next_cursor": events[-1]["id"] if len(events) == msg["limit"] else None}
+        msg["id"],
+        {
+            "events": events,
+            "next_cursor": events[-1]["id"] if len(events) == msg["limit"] else None,
+            "traps": ledger.journal_traps(test=test),
+        },
     )

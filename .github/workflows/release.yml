@@ -77,10 +77,12 @@ jobs:
             } catch (error) {
               if (error.status !== 404) throw error;
             }
+            const notes = fs.readFileSync(`release-notes/${tag}.md`, 'utf8');
+            const heading = notes.match(/^# (Mousetrap Manager [^\r\n]+)\r?\n/);
             const release = await github.rest.repos.createRelease({
               owner, repo, tag_name: tag, target_commitish: context.sha,
-              name: `Mousetrap Manager ${tag}`,
-              body: fs.readFileSync(`release-notes/${tag}.md`, 'utf8'),
+              name: heading ? heading[1] : `Mousetrap Manager ${tag}`,
+              body: heading ? notes.slice(heading[0].length).trimStart() : notes,
               draft: true, prerelease: false
             });
             for (const name of fs.readdirSync('build/releases').sort()) {
