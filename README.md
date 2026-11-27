@@ -230,7 +230,7 @@ npx playwright install chromium
 npm test
 ```
 
-Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene dekker også kompakt tilsyn, synlighet, feilstatus og editorens oppsett av native HA-betingelser. De dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk visning av feller og sesongpause, handlinger, kildelesing, mobilbredde, logg og syntaks.
+Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Bruk `npm test -- syntax` for å kjøre syntakssjekkene alene. Frontendtestene dekker også kompakt tilsyn, synlighet, feilstatus og editorens oppsett av native HA-betingelser. De dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk visning av feller og sesongpause, handlinger, kildelesing, mobilbredde og logg.
 
 Begge leverte kopier av kortfilen skal være identiske: `dist/mousetrap-manager-card.js` og filen i integrasjonens `frontend`-mappe.
 
@@ -248,13 +248,11 @@ Begge leverte kopier av kortfilen skal være identiske: `dist/mousetrap-manager-
 10. Aktiver `last_seen` i Zigbee2MQTT. Kontroller at kortet viser kontaktalder, og at restart uten ny Zigbee-kontakt ikke gjør tidspunktet nytt.
 11. For valgfri Victor-gjenoppretting: kontroller valgt konto, terskler og diagnostikkstatus. Bekreft ved neste reelle feil at korte avbrudd får rette seg selv, og at bare valgt Victor-oppføring lastes på nytt etter terskelen.
 
-## Opphav og lisens
+## Lisens
 
-Opphav til deler av nettlesertestenes oppsett: Rodent Trap Card 1.4, Katherine Dubé / `kedube`, commit [`28ff11fce917bb51a2d078b5c62bde40524b686a`](https://github.com/kedube/ha-rodent-traps/commit/28ff11fce917bb51a2d078b5c62bde40524b686a). Se [UPSTREAM.md](docs/UPSTREAM.md).
+Mousetrap Manager distribueres under [GPL-3.0-or-later](LICENSE).
 
-GPL-3.0-or-later, med opprinnelige kildehenvisninger bevart. Se [LICENSE](LICENSE).
-
-Integrasjonsikonet er `mdi:rodent`, opprinnelig kreditert Google i Pictogrammers' Material Design Icons 7.4.47. Det beholder Apache 2.0-lisensen; kilde, lisenstekst og merknader følger med i integrasjonens `brand/`-mappe. De vedlagte Magnific-illustrasjonene brukes ikke.
+Integrasjonsikonet er `mdi:rodent`, opprinnelig kreditert Google i Pictogrammers' Material Design Icons 7.4.47. Kilde, Apache 2.0-lisens og merknader følger med i integrasjonens `brand/`-mappe.
 
 ## Utvikling og publisering fra main
 

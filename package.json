@@ -1,7 +1,7 @@
 {
   "name": "ha-mousetrap-manager",
   "private": true,
-  "description": "Tests for the Mousetrap Manager card fork",
+  "description": "Tests for the Mousetrap Manager dashboard card",
   "type": "module",
   "scripts": {
     "test": "node tests/run.mjs"

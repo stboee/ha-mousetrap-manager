@@ -31,7 +31,6 @@ def build(version: str | None = None, output: Path | None = None) -> Path:
     }
     for source, destination in [
         ("LICENSE", "LICENSE"),
-        ("docs/UPSTREAM.md", "UPSTREAM.md"),
         ("README.md", "INSTALL.md"),
     ]:
         files[f"mousetrap_manager/{destination}"] = (ROOT / source).read_bytes()

@@ -1,4 +1,4 @@
-# Originalgrunnlag
+# Opphav i tidligere versjoner
 
 - Prosjekt: https://github.com/kedube/ha-rodent-traps
 - Forfatter: Katherine Dubé / kedube
@@ -8,8 +8,8 @@
 - Valgt: 28. oktober 2026
 - Lisens: GPL-3.0-or-later
 
-Til og med v2026.11.26 var de fire klassiske klappfellebildene bearbeidet fra originalen. Fra v2026.11.27 kommer de fra prosjektets egen 3D-modell. `scripts/render_classic_trap.py` rendrer samme felle i de to stillingene med Blender. Victor M1-grafikken er egen SVG-grafikk etter brukerens produktreferanse. Begge følger GPL-3.0-or-later.
+Til og med v2026.11.26 var de fire klassiske klappfellebildene bearbeidet fra originalen. Fra v2026.11.27 kommer de fra prosjektets egen 3D-modell.
 
-Deler av nettlesertestenes testkjører, testhjelpere og syntakskontroller bygger på originalprosjektets tester. Disse delene beholder opphav og lisens.
+Til og med v2026.11.27 bygde deler av testkjøreren, testhjelperne, testens HTML-side og syntakskontrollene på originalprosjektets tester. Etter v2026.11.27 ble disse filene erstattet med et nytt oppsett basert på Nodes testkjører og Playwright.
 
-Rapp 2- og Biltema Giljotin-illustrasjonene fra 0.5.0 er egen vektorgrafikk (GPL-3.0-or-later), tegnet med brukerens produktbilder som formreferanser. Ingen produktfotografier eller produsentlogoer følger pakken. `scripts/render_snap_graphics.py` genererer de åtte statusbildene fra felles geometri og tydelige statusmerker.
+Publiserte versjoner beholder GPL-3.0-or-later og opphavsmerknadene som fulgte med den enkelte versjonen.

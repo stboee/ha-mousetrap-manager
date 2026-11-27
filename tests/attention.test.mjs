@@ -1,4 +1,4 @@
-import {fixtureUrl,openPage} from './lib.mjs';
+import {attentionDemoUrl,fixtureUrl,openPage} from './lib.mjs';
 
 export default async function run(browser){
  const page=await openPage(browser,fixtureUrl,{viewport:{width:390,height:844}});
@@ -79,7 +79,7 @@ export default async function run(browser){
  });
  const errors=[...page.errors];await page.close();
  for(const width of [280,390]){
-  const preview=await openPage(browser,fixtureUrl.replace('/tests/fixture.html','/demo/attention.html'),{viewport:{width,height:800}});
+  const preview=await openPage(browser,attentionDemoUrl,{viewport:{width,height:800}});
   for(const dark of [false,true]){
    if(dark)await preview.locator('main>button').click();
    const size=await preview.locator('mousetrap-manager-card').evaluate(c=>({overflow:c.scrollWidth>c.clientWidth || document.documentElement.scrollWidth>innerWidth,height:c.getBoundingClientRect().height}));

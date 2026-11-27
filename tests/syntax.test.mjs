@@ -1,73 +1,103 @@
-// Source rules for the card: it parses as ES2018 so older wall tablets and WebViews can load it, has no
-// lookbehind regexes (Safari before 16.4), is plain ASCII and passes node --check. Also runs CI's ASCII guard.
-import { parse, tokenizer } from "acorn";
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import YAML from "yaml";
-import { cardPath, root } from "./lib.mjs";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
-export default async function run() {
-  const lines = [];
-  const check = (name, got, want) => {
-    const g = JSON.stringify(got);
-    const w = JSON.stringify(want);
-    lines.push(g === w ? `ok   ${name}` : `FAIL ${name}  -> expected ${w} got ${g}`);
-  };
-  const src = readFileSync(cardPath, "utf8");
+import { parse, tokenizer } from "acorn";
+import { parse as parseYaml } from "yaml";
 
-  const es2018 = (code) => {
-    try {
-      parse(code, { ecmaVersion: 2018, sourceType: "script" });
-      return "ok";
-    } catch (e) {
-      return e.message;
-    }
-  };
-  check("card parses as ES2018", es2018(src), "ok");
-  // The check has teeth: newer syntax is rejected.
-  for (const [what, code] of [["??", "a ?? b"], ["?.", "a?.b"], ["class fields", "class A { x = 1 }"], ["numeric separators", "1_000"]]) {
-    check(`ES2018 check rejects ${what}`, es2018(code) !== "ok", true);
-  }
+const card = new URL("../custom_components/mousetrap_manager/frontend/mousetrap-manager-card.js", import.meta.url);
+const distribution = "dist/mousetrap-manager-card.js";
+const source = await readFile(card, "utf8");
+const compatibility = { ecmaVersion: 2018 };
 
-  const lookbehind = (code) => {
-    const found = [];
-    for (const t of tokenizer(code, { ecmaVersion: 2018, locations: true })) {
-      if (t.type.label === "regexp" && /\(\?<[=!]/.test(t.value.pattern)) found.push(t.loc.start.line);
-    }
-    return found;
-  };
-  check("no lookbehind regexes", lookbehind(src), []);
-  check("lookbehind check finds one", lookbehind("const a = 1;\nconst r = /(?<!x)y/;"), [2]);
+test("both shipped copies of the card are identical", async () => {
+  const bundledCopy = await readFile(new URL(`../${distribution}`, import.meta.url), "utf8");
+  assert.equal(bundledCopy, source);
+});
 
-  const nonAscii = src.split("\n").map((l, i) => (/[^\x00-\x7f]/.test(l) ? i + 1 : 0)).filter(Boolean);
-  check("card is plain ASCII", nonAscii, []);
-  check("node --check passes", spawnSync(process.execPath, ["--check", cardPath]).status, 0);
+test("the dashboard script parses as ES2018", () => {
+  parse(source, compatibility);
+});
 
-  // CI's guards, run as CI runs them.
-  const syntax = YAML.parse(readFileSync(join(root, ".github/workflows/ci.yml"), "utf8")).jobs.syntax.steps;
-  const runs = syntax.map((s) => s.run || "");
-  check("CI checks syntax", runs.includes("node --check dist/mousetrap-manager-card.js"), true);
-  check("CI parses the card as ES2018", runs.includes("npx --yes acorn@8 --ecma2018 --silent dist/mousetrap-manager-card.js"), true);
-  const ascii = syntax.find((s) => /ASCII/.test(s.name || ""));
-  check("CI has an ASCII guard", !!ascii, true);
-  if (ascii) {
-    const dir = mkdtempSync(join(tmpdir(), "rtc-ascii-"));
-    try {
-      mkdirSync(join(dir, "dist"));
-      const guard = (text) => {
-        writeFileSync(join(dir, "dist/mousetrap-manager-card.js"), text);
-        const r = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", ascii.run], { cwd: dir, encoding: "utf8" });
-        return { status: r.status, out: r.stdout.trim() };
-      };
-      check("ASCII guard passes the card", guard(src).status, 0);
-      const bad = guard('const a = 1;\nconst b = 2;\nconst c = "café";\n');
-      check("ASCII guard fails on a non-ASCII character", bad.status, 1);
-      check("ASCII guard names the line", bad.out, "::error file=dist/mousetrap-manager-card.js,line=3::Non-ASCII character. Write it as a \\u escape.");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  }
-  return { lines };
+for (const [feature, example] of Object.entries({
+  "nullish coalescing": "undefined ?? false",
+  "optional chaining": "trap?.state",
+  "public class fields": "class Trap { available = false }",
+  "numeric separators": "const timeout = 10_000",
+})) {
+  test(`the ES2018 parser rejects ${feature}`, () => {
+    assert.throws(() => parse(example, compatibility), SyntaxError);
+  });
 }
+
+function usesLookbehind(pattern) {
+  let insideSet = false;
+  for (let i = 0; i < pattern.length; i++) {
+    if (pattern[i] === "\\") {
+      i++;
+    } else if (pattern[i] === "[") {
+      insideSet = true;
+    } else if (pattern[i] === "]") {
+      insideSet = false;
+    } else if (!insideSet && (pattern.startsWith("(?<=", i) || pattern.startsWith("(?<!", i))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function lookbehindLocations(script) {
+  const matches = [];
+  for (const token of tokenizer(script, { ...compatibility, locations: true })) {
+    if (token.value?.pattern && usesLookbehind(token.value.pattern)) matches.push(token.loc.start.line);
+  }
+  return matches;
+}
+
+test("regular expressions load on browsers without lookbehind support", () => {
+  assert.deepEqual(lookbehindLocations(source), []);
+  assert.deepEqual(lookbehindLocations("const before = /(?<=x)y/;\nconst after = /(?<!a)b/;"), [1, 2]);
+  assert.deepEqual(lookbehindLocations(String.raw`const literal = /\(\?<=/; const set = /[(?<!=]/;`), []);
+});
+
+test("Node's syntax check accepts the card", () => {
+  const outcome = spawnSync(process.execPath, ["--check", fileURLToPath(card)], { encoding: "utf8" });
+  assert.equal(outcome.status, 0, outcome.stderr || String(outcome.error ?? ""));
+});
+
+test("the dashboard script uses ASCII source bytes", () => {
+  const bytes = Buffer.from(source, "utf8");
+  assert.equal(bytes.findIndex((byte) => byte > 127), -1, "Encode non-ASCII text with Unicode escapes");
+});
+
+test("the build workflow runs syntax checks on the distributed card", async () => {
+  const { jobs } = parseYaml(await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"));
+  const commands = jobs.syntax.steps.map((step) => step.run?.trim());
+  assert.ok(commands.includes(`node --check ${distribution}`), "Node syntax check is missing");
+  assert.ok(commands.includes(`npx --yes acorn@8 --ecma2018 --silent ${distribution}`), "ES2018 check is missing");
+});
+
+test("the CI ASCII guard accepts the card and reports an incompatible byte at its line", async (t) => {
+  const { jobs } = parseYaml(await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"));
+  const guard = jobs.syntax.steps.find((step) => step.name === "ASCII guard")?.run;
+  assert.ok(guard, "Missing ASCII check in CI");
+
+  const sandbox = await mkdtemp(join(tmpdir(), "mousetrap-compatibility-"));
+  t.after(() => rm(sandbox, { recursive: true, force: true }));
+  await mkdir(join(sandbox, "dist"));
+
+  const file = join(sandbox, distribution);
+  const check = () => spawnSync("bash", ["-e", "-c", guard], { cwd: sandbox, encoding: "utf8" });
+  await writeFile(file, source);
+  const pass = check();
+  assert.equal(pass.status, 0, pass.stdout || pass.stderr);
+
+  await writeFile(file, '// header\n\nconst title = "Felle på loftet";\n');
+  const fail = check();
+  assert.equal(fail.status, 1);
+  assert.match(fail.stdout, /::error file=dist\/mousetrap-manager-card\.js,line=3::Non-ASCII character/);
+});

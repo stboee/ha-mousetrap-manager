@@ -1,37 +1,41 @@
-// Runs every *.test.mjs suite in headless Chrome. Exits non-zero on any failure or page error.
-import { readdirSync } from "node:fs";
-import { launch } from "./lib.mjs";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { launchBrowser } from "./lib.mjs";
 
-const only = process.argv.slice(2);
-const dir = new URL(".", import.meta.url);
-const suites = readdirSync(dir).filter((f) => f.endsWith(".test.mjs") && (!only.length || only.some((o) => f.includes(o)))).sort();
-const browser = await launch();
-let failed = 0;
-let passed = 0;
-try {
-  for (const file of suites) {
-    const { default: run } = await import(new URL(file, dir));
-    console.log(`\n# ${file}`);
-    let result, deadline;
-    try {
-      result = await Promise.race([run(browser), new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error("Suite exceeded 45 seconds")), 45000); })]);
-    } catch (e) {
-      console.log(`FAIL ${file} threw: ${e && e.stack ? e.stack : e}`);
-      failed++;
-      continue;
-    } finally { clearTimeout(deadline); }
-    for (const line of result.lines) {
-      console.log(line);
-      if (line.startsWith("FAIL")) failed++;
-      else if (line.startsWith("ok")) passed++;
+const browserSuites = [
+  ["attention", () => import("./attention.test.mjs")],
+  ["dashboard", () => import("./dashboard.test.mjs")],
+  ["layout", () => import("./layout.test.mjs")],
+];
+
+const filters = process.argv.slice(2);
+const include = (name) => filters.length === 0 || filters.some((part) => `${name}.test.mjs`.includes(part));
+const selected = browserSuites.filter(([name]) => include(name));
+const withSyntax = include("syntax");
+
+if (!withSyntax && selected.length === 0) throw new Error("No suites match the filter");
+if (withSyntax) await import("./syntax.test.mjs");
+
+if (selected.length > 0) {
+  test("Home Assistant card in Chromium", async (t) => {
+    const browser = await launchBrowser();
+    t.after(() => browser.close());
+
+    for (const [name, importSuite] of selected) {
+      await t.test(name, { timeout: 45_000 }, async (suite) => {
+        const { default: exercise } = await importSuite();
+        const report = await exercise(browser);
+        const failures = (report.errors ?? []).map((message) => `Browser: ${message}`);
+        let passed = 0;
+        for (const result of report.lines) {
+          if (result.startsWith("ok ")) passed++;
+          else failures.push(result);
+        }
+
+        assert.ok(report.lines.length > 0, "Suite must exercise the card");
+        assert.deepEqual(failures, [], failures.join("\n"));
+        suite.diagnostic(`${passed} browser assertions`);
+      });
     }
-    for (const err of result.errors || []) {
-      console.log(`FAIL page error: ${err}`);
-      failed++;
-    }
-  }
-} finally {
-  await browser.close();
+  });
 }
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);

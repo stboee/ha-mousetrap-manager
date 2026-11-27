@@ -1,46 +1,73 @@
-import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
-import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { chromium } from "playwright";
 
-export const root = fileURLToPath(new URL("..", import.meta.url));
-export const cardPath = root + "custom_components/mousetrap_manager/frontend/mousetrap-manager-card.js";
-const server = createServer(async (req,res) => {
-  let path = new URL(req.url, "http://localhost").pathname;
-  if (path === "/favicon.ico") { res.writeHead(204).end(); return; }
-  if (path.startsWith("/mousetrap_manager/images/")) path = "/custom_components/mousetrap_manager/frontend/images/" + path.split("/").pop();
-  const full = resolve(root, "." + path);
-  if (!full.startsWith(resolve(root) + "/")) { res.writeHead(403).end(); return; }
-  try {
-    const body = await readFile(full);
-    res.setHeader("Content-Type", full.endsWith(".svg") ? "image/svg+xml" : full.endsWith(".js") ? "text/javascript" : "text/html");
-    res.end(body);
-  } catch (_) { res.writeHead(404).end(); }
-});
-await new Promise((r) => server.listen(0,"127.0.0.1",r));
-server.unref();
-export const fixtureUrl = `http://127.0.0.1:${server.address().port}/tests/fixture.html`;
-export const demoUrl = `http://127.0.0.1:${server.address().port}/demo/index.html`;
+const origin = "http://mousetrap-manager.test";
+const integration = "custom_components/mousetrap_manager";
+const resource = `${integration}/frontend/mousetrap-manager-card.js`;
+const localFile = (suffix) => fileURLToPath(new URL(`../${suffix}`, import.meta.url));
 
-/** Installed Google Chrome (or CHROME_PATH); falls back to Playwright's own Chromium if present. */
-export async function launch() {
-  const opts = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH, args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"] } : { channel: "chrome" };
+export const cardPath = localFile(resource);
+export const fixtureUrl = `${origin}/tests/fixture.html`;
+export const demoUrl = `${origin}/demo/index.html`;
+export const attentionDemoUrl = `${origin}/demo/attention.html`;
+
+const documents = new Set(["/tests/fixture.html", "/demo/index.html", "/demo/attention.html"]);
+const imageRoute = /^\/mousetrap_manager\/images\/([a-z0-9-]+\.svg)$/;
+
+async function respondWithFixture(route) {
+  const url = new URL(route.request().url());
+  if (url.origin !== origin) {
+    await route.abort();
+    return;
+  }
+  if (url.pathname === "/favicon.ico") {
+    await route.fulfill({ status: 204, body: "" });
+    return;
+  }
+  if (documents.has(url.pathname)) {
+    await route.fulfill({ path: localFile(url.pathname.slice(1)), contentType: "text/html; charset=utf-8" });
+    return;
+  }
+  if (url.pathname === "/mousetrap_manager/mousetrap-manager-card.js" || url.pathname === `/${resource}`) {
+    await route.fulfill({ path: cardPath, contentType: "text/javascript; charset=utf-8" });
+    return;
+  }
+  const illustration = imageRoute.exec(url.pathname)?.[1];
+  if (illustration) {
+    await route.fulfill({
+      path: localFile(`${integration}/frontend/images/${illustration}`),
+      contentType: "image/svg+xml",
+    });
+    return;
+  }
+  await route.fulfill({ status: 404, body: "No matching test fixture" });
+}
+
+export async function launchBrowser() {
+  const executablePath = process.env.CHROME_PATH;
+  if (executablePath) {
+    return chromium.launch({ executablePath, args: ["--disable-dev-shm-usage", "--disable-gpu"] });
+  }
   try {
-    return await chromium.launch(opts);
-  } catch (e) {
-    return chromium.launch();
+    return await chromium.launch();
+  } catch (bundledError) {
+    try {
+      return await chromium.launch({ channel: "chrome" });
+    } catch (installedError) {
+      throw new AggregateError([bundledError, installedError], "Install Chromium for Playwright or set CHROME_PATH");
+    }
   }
 }
 
-/** A page with console errors and uncaught exceptions collected into page.errors. */
-export async function openPage(browser, url, options = {}) {
-  const page = await browser.newPage(options);
-  page.errors = [];
-  page.on("pageerror", (e) => page.errors.push("pageerror: " + e.message));
-  page.on("console", (m) => {
-    if (m.type() === "error") page.errors.push("console.error: " + m.text());
+export async function openPage(browser, url, options) {
+  const tab = await browser.newPage(options);
+  const errors = [];
+  tab.errors = errors;
+  tab.on("console", (event) => {
+    if (event.type() === "error") errors.push(event.text());
   });
-  if (url) await page.goto(url);
-  return page;
+  tab.on("pageerror", (exception) => errors.push(exception.message));
+  await tab.route("**/*", respondWithFixture);
+  await tab.goto(url);
+  return tab;
 }
