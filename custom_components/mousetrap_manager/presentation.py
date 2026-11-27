@@ -16,7 +16,6 @@ DISPLAY_DEFAULTS = {
     "columns": 3,
     "show_summary": True,
     "show_scene": True,
-    "animations": True,
     "metrics": ["catches", "present", "last_catch", "battery", "contact", "signal", "bait_age", "inspection_age"],
     "battery_low": 20,
     "stale_after_hours": 24,
@@ -44,10 +43,10 @@ SOURCE_SUFFIXES = {
 
 
 def display_settings(options, trap=None):
-    result = {**DISPLAY_DEFAULTS, **options.get("display", {})}
+    overrides = dict(options.get("display", {}))
     if trap:
-        result.update(trap.get("display", {}))
-    return result
+        overrides.update(trap.get("display", {}))
+    return {key: overrides.get(key, default) for key, default in DISPLAY_DEFAULTS.items()}
 
 
 def source_entities(hass, config):
@@ -224,7 +223,6 @@ def presentation(manager, config, summary, now):
         "metrics": metrics,
         "actions": actions,
         "show_scene": settings["show_scene"],
-        "animations": settings["animations"],
         "source_entities": sources,
         "last_sensor_contact": contact,
         "health": {"unavailable": unavailable, "old_contact": old, "stale_contact": stale, "low_battery": low},

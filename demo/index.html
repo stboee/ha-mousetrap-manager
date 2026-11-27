@@ -5,7 +5,7 @@ body{font-family:system-ui,sans-serif;background:#eef2f5;margin:0;padding:20px;c
 const st=(value,attributes={})=>({state:String(value),attributes});
 const now=Date.now();
 const action=(service,label,event_id,contextual)=>({service,label,event_id,contextual});
-const base={location:'Uthus',status:'monitoring',label:'Ingen fangst meldt',scene:'normal',color:'#246c47',priority:4,show_scene:true,animations:true,warnings:[],actions:[action('inspection_completed','Inspeksjon utført','initial',false),action('bait_replaced','Åte byttet','initial',false)]};
+const base={location:'Uthus',status:'monitoring',label:'Ingen fangst meldt',scene:'normal',color:'#246c47',priority:4,show_scene:true,warnings:[],actions:[action('inspection_completed','Inspeksjon utført','initial',false),action('bait_replaced','Åte byttet','initial',false)]};
 const card=document.querySelector('mousetrap-manager-card');
 const states={'sensor.dashboard':st(1,{mousetrap_manager_dashboard:true,display:{title:'Musefeller',sort:'config',columns:3,show_summary:true}}),'sensor.snap_total':st(8,{mousetrap_manager_total:true})};
 const configurations=[

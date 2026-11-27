@@ -1,6 +1,6 @@
 # Mousetrap Manager
 
-Videreutvikling av [Rodent Trap Card](https://github.com/kedube/ha-rodent-traps), med en Home Assistant-integrasjon som holder et felles, varig register over musefeller.
+Mousetrap Manager er en Home Assistant-integrasjon for overvåking og historikk for musefeller.
 
 **Versjon 2026.11.26. Testet med Home Assistant 2026.10.4 og 2026.11.2.**
 
@@ -61,9 +61,9 @@ Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjone
 type: custom:mousetrap-manager-card
 ```
 
-Feller i bruk vises automatisk i fullvisningen, med tydelig merking av testfeller. Under **Kort og tilsyn → Fullvisning** velger du tittel, sortering, maksimalt antall kolonner, oppsummering, illustrasjoner, animasjoner og verdier. Under hver felle kan du beholde felles visning eller gi fellen egne innstillinger. Layouten tilpasser seg skjermbredden. Et tomt plasseringsfelt bruker kildeenhetens HA-område.
+Feller i bruk vises automatisk i fullvisningen, med tydelig merking av testfeller. Under **Kort og tilsyn → Fullvisning** velger du tittel, sortering, maksimalt antall kolonner, oppsummering, illustrasjoner og verdier. Under hver felle kan du beholde felles visning eller gi fellen egne innstillinger. Layouten tilpasser seg skjermbredden. Et tomt plasseringsfelt bruker kildeenhetens HA-område.
 
-Tidligere YAML-valg for navn, roller, handlinger, visning og et fast `traps`-utvalg brukes ikke lenger. Eksisterende kort viser en forklaring og følger det sentrale oppsettet; forenkle YAML som ovenfor. Dette er en bevisst endring fra 0.3.0. HAs egne `grid_options` og `visibility` kan brukes i tillegg til korttype og visningsmodus. Fullvisning og tilsyn kan brukes samtidig; øvrige visningsvalg styres i integrasjonen. Flere ulike oppsettsprofiler støttes ikke nå. Bare snap-feller og Victor M1 vises; de andre originaltypene er tatt ut av vår runtime.
+Tidligere YAML-valg for navn, roller, handlinger, visning og et fast `traps`-utvalg brukes ikke lenger. Eksisterende kort viser en forklaring og følger det sentrale oppsettet; forenkle YAML som ovenfor. Dette er en bevisst endring fra 0.3.0. HAs egne `grid_options` og `visibility` kan brukes i tillegg til korttype og visningsmodus. Fullvisning og tilsyn kan brukes samtidig; øvrige visningsvalg styres i integrasjonen. Flere ulike oppsettsprofiler støttes ikke nå. Fullvisningen støtter klappfeller og Victor M1.
 
 Store statusoverskrifter og tydelige symboler står øverst. Aktiv overvåking viser en oppspent snap-felle uten mus. Bevegelse viser en utløst felle med spørsmålstegn. **Overvåking aktiv** betyr at programvaren overvåker; vibrasjonssensoren kan ikke bevise fysisk armering. Integrasjonens ikon bruker lokalt medfølgende `mdi:rodent`.
 
@@ -230,9 +230,9 @@ npx playwright install chromium
 npm test
 ```
 
-Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene dekker også kompakt tilsyn, synlighet, feilstatus og editorens oppsett av native HA-betingelser. De dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk visning av feller og sesongpause, handlinger, kildelesing, mobilbredde, logg og syntaks. De tidligere testene av originalkortets frontendmodell ble erstattet da modellen flyttet til Python i 0.3.0; de finnes i tag v0.2.1. Originalprosjektets publiseringstester ligger bare som referanse i `docs/upstream/tests`.
+Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene dekker også kompakt tilsyn, synlighet, feilstatus og editorens oppsett av native HA-betingelser. De dekker protokollen mot integrasjonen, blandet Snap-/Victor-visning, automatisk visning av feller og sesongpause, handlinger, kildelesing, mobilbredde, logg og syntaks.
 
-`scripts/derive_card.py` dokumenterer den opprinnelige avledningen fra den låste originalfilen. Begge leverte kopier av vår kortfil skal være identiske: `dist/mousetrap-manager-card.js` og filen i integrasjonens `frontend`-mappe. Originalfilen i `dist/rodent-trap-card.js` beholdes uendret som sammenligningsgrunnlag.
+Begge leverte kopier av kortfilen skal være identiske: `dist/mousetrap-manager-card.js` og filen i integrasjonens `frontend`-mappe.
 
 ## Fysisk akseptansetest før ordinær bruk
 
@@ -250,7 +250,7 @@ Kjør gjerne med `CHROME_PATH` satt til en installert Chromium. Frontendtestene 
 
 ## Opphav og lisens
 
-Kortgrunnlag: Rodent Trap Card 1.4, Katherine Dubé / `kedube`, commit [`28ff11fce917bb51a2d078b5c62bde40524b686a`](https://github.com/kedube/ha-rodent-traps/commit/28ff11fce917bb51a2d078b5c62bde40524b686a). Se [UPSTREAM.md](docs/UPSTREAM.md). Oppdateringer fra originalprosjektet vurderes som egne saker.
+Opphav til de klassiske klappfellebildene og deler av testoppsettet: Rodent Trap Card 1.4, Katherine Dubé / `kedube`, commit [`28ff11fce917bb51a2d078b5c62bde40524b686a`](https://github.com/kedube/ha-rodent-traps/commit/28ff11fce917bb51a2d078b5c62bde40524b686a). Se [UPSTREAM.md](docs/UPSTREAM.md).
 
 GPL-3.0-or-later, med opprinnelige kildehenvisninger bevart. Se [LICENSE](LICENSE).
 

@@ -100,7 +100,6 @@
           "columns": "Maksimalt antall kolonner",
           "show_summary": "Vis oversikt og Snap-fangster",
           "show_scene": "Vis illustrasjon",
-          "animations": "Tillat animasjoner",
           "metrics": "Verdier som vises"
         }
       },
@@ -214,7 +213,6 @@
         "title": "Card display for this trap",
         "data": {
           "show_scene": "Vis illustrasjon",
-          "animations": "Tillat animasjoner",
           "metrics": "Verdier som vises"
         }
       },

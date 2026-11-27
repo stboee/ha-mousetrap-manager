@@ -17,7 +17,7 @@ from .presentation import METRIC_LABELS, SOURCE_SUFFIXES, display_settings
 from .victor_recovery import RECOVERY_DEFAULTS
 
 THRESHOLDS = {"battery_low": 100, "stale_after_hours": 87600, "offline_after_hours": 87600}
-TRAP_LAYOUT = ("show_scene", "animations", "metrics")
+TRAP_LAYOUT = ("show_scene", "metrics")
 TRAP_ACTIONS = {
     "pause": "Sett på sesongpause",
     "resume": "Ta i bruk igjen",
@@ -230,8 +230,7 @@ class MousetrapOptionsFlow(config_entries.OptionsFlow):
                 selector.NumberSelectorConfig(min=1, max=6, step=1, mode=selector.NumberSelectorMode.BOX)
             )
             schema[vol.Required("show_summary", default=values["show_summary"])] = bool
-        for key in ("show_scene", "animations"):
-            schema[vol.Required(key, default=values[key])] = bool
+        schema[vol.Required("show_scene", default=values["show_scene"])] = bool
         schema[vol.Required("metrics", default=values["metrics"])] = selector.SelectSelector(
             selector.SelectSelectorConfig(
                 multiple=True, options=[{"value": k, "label": v} for k, v in METRIC_LABELS.items()]
