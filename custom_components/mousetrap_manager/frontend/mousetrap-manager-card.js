@@ -1,11 +1,10 @@
 /*!
- * Mousetrap Manager. Snap illustration derived from Rodent Trap Card by Katherine Dube.
- * https://github.com/kedube/ha-rodent-traps
+ * Mousetrap Manager dashboard card.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 (() => {
   "use strict";
-  const VERSION = "2026.11.26";
+  const VERSION = "2026.11.27";
   const CARD_TAG = "mousetrap-manager-card";
   const EDITOR_TAG = "mousetrap-manager-card-editor";
   const esc = (s) => String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);

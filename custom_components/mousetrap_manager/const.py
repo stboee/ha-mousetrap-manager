@@ -1,7 +1,7 @@
 """Constants for Mousetrap Manager."""
 
 DOMAIN = "mousetrap_manager"
-VERSION = "2026.11.26"
+VERSION = "2026.11.27"
 PLATFORMS = ["sensor", "binary_sensor", "button"]
 DEFAULT_COOLDOWN = 30
 STORAGE_VERSION = 1

@@ -2,7 +2,7 @@
 
 Mousetrap Manager er en Home Assistant-integrasjon for overvåking og historikk for musefeller.
 
-**Versjon 2026.11.26. Testet med Home Assistant 2026.10.4 og 2026.11.2.**
+**Versjon 2026.11.27. Testet med Home Assistant 2026.10.4 og 2026.11.2.**
 
 ## Arbeidsflyt
 
@@ -45,7 +45,7 @@ Ikke bare kopier Python-filene: `frontend`, `translations`, `manifest.json` og `
 4. Velg Aqara-sensorens MQTT-enhet, et fellenavn og nøyaktig MQTT-topic. For den første kjente sensoren er topic `zigbee2mqtt/Vibrasjon`.
 5. Legg til denne dashboardressursen som **JavaScript-modul** under Innstillinger → Dashboards → Ressurser (avansert modus kan være nødvendig):
 
-`/mousetrap_manager/mousetrap-manager-card.js?v=2026.11.26`
+`/mousetrap_manager/mousetrap-manager-card.js?v=2026.11.27`
 
 6. Last nettleseren/Companion-appen på nytt og legg til **Mousetrap Manager Card**. Kortet finner alle aktive feller automatisk, også feller som legges til senere.
 
@@ -53,7 +53,7 @@ Ingen ekstra hjelpere per felle trengs. `hacs.json` beskriver integrasjonen; kor
 
 ### Oppgradering fra 0.1.x–0.5.x
 
-Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=2026.11.26` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere arkiverte feller vises som **Sesongpause**. Fra denne utgivelsen bruker vi versjonsformatet `ÅÅÅÅ.MM.DD` basert på publiseringsdatoen. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Ved oppgradering fra 0.1.x er åtebytte og sensorkontakt ukjent til de registreres. Tidspunkter og vedlikehold som allerede er registrert i 0.2.x beholdes.
+Oppdater gjennom HACS eller erstatt hele integrasjonsmappen med den nye versjonen. Behold integrasjonen og `.storage`-dataene; ikke slett oppsettet. Start HA på nytt, endre dashboardressursens versjon til `?v=2026.11.27` og last nettleseren/appen på nytt. Registrerte feller, ventende kontroll og fangsthistorikk videreføres. Tidligere arkiverte feller vises som **Sesongpause**. Fra denne utgivelsen bruker vi versjonsformatet `ÅÅÅÅ.MM.DD` basert på publiseringsdatoen. Tidligere fangstbekreftelser og falske alarmer gir sitt faktiske tidspunkt som siste inspeksjon. Ved oppgradering fra 0.1.x er åtebytte og sensorkontakt ukjent til de registreres. Tidspunkter og vedlikehold som allerede er registrert i 0.2.x beholdes.
 
 ## Kort og felles oppsett
 
@@ -65,15 +65,15 @@ Feller i bruk vises automatisk i fullvisningen, med tydelig merking av testfelle
 
 Tidligere YAML-valg for navn, roller, handlinger, visning og et fast `traps`-utvalg brukes ikke lenger. Eksisterende kort viser en forklaring og følger det sentrale oppsettet; forenkle YAML som ovenfor. Dette er en bevisst endring fra 0.3.0. HAs egne `grid_options` og `visibility` kan brukes i tillegg til korttype og visningsmodus. Fullvisning og tilsyn kan brukes samtidig; øvrige visningsvalg styres i integrasjonen. Flere ulike oppsettsprofiler støttes ikke nå. Fullvisningen støtter klappfeller og Victor M1.
 
-Store statusoverskrifter og tydelige symboler står øverst. Aktiv overvåking viser en oppspent snap-felle uten mus. Bevegelse viser en utløst felle med spørsmålstegn. **Overvåking aktiv** betyr at programvaren overvåker; vibrasjonssensoren kan ikke bevise fysisk armering. Integrasjonens ikon bruker lokalt medfølgende `mdi:rodent`.
+Store statusoverskrifter og tydelige symboler står øverst. Aktiv overvåking viser en oppspent klappfelle. Den klassiske modellen har en rett låsearm som er festet midt bak og går gjennom utløseren. Bevegelse viser en utløst felle med spørsmålstegn. **Overvåking aktiv** betyr at programvaren overvåker; vibrasjonssensoren kan ikke bevise fysisk armering. Integrasjonens ikon bruker lokalt medfølgende `mdi:rodent`.
 
 **Felleillustrasjon** velges ved registrering eller under **Konfigurer → Feller → Velg og administrer felle → Navn, sensor og vedlikehold**.
 
-- **Klassisk klappfelle** – dagens illustrasjon og standard for eksisterende feller.
+- **Klassisk klappfelle** – klassisk trefelle med rett låsearm. Standard for eksisterende feller.
 - **Rapp 2** – mørk, innkapslet klappfelle.
 - **Biltema Giljotin** – lys giljotinfelle med ventilasjonsspor og metallfjær.
 
-Valget gjelder bare utseendet og lagres per felle i integrasjonen. Det vises likt på PC og mobil. Alle tre overvåkes som vibrasjonsfeller med de samme kontrollhandlingene. Du kan bytte illustrasjon uten å opprette fellen på nytt; felle-ID, fangster, åtehistorikk, inspeksjon og ventende kontroll beholdes. Hver modell har bilder for overvåking, kontrollbehov, inspeksjon og utilgjengelig sensor. Statusen står fortsatt med stor tekst i kortets topp. Victor M1 beholder sin egen grafikk. De nye SVG-illustrasjonene er tegnet etter produktbildene som formreferanser; fotografiene distribueres ikke.
+Valget gjelder bare utseendet og lagres per felle i integrasjonen. Det vises likt på PC og mobil. Alle tre overvåkes som vibrasjonsfeller med de samme kontrollhandlingene. Du kan bytte illustrasjon uten å opprette fellen på nytt; felle-ID, fangster, åtehistorikk, inspeksjon og ventende kontroll beholdes. Hver modell har bilder for overvåking, kontrollbehov, inspeksjon og utilgjengelig sensor. Statusen står fortsatt med stor tekst i kortets topp. Victor M1 beholder sin egen grafikk. De klassiske bildene er rendret fra én egen 3D-modell. Rapp 2 og Biltema Giljotin er tegnet med produktbilder som formreferanse.
 
 Oppsummeringen holder felletypene adskilt og viser bare registerets **Snap-fangster**, inkludert registrerte driftsfangster fra feller på sesongpause eller feller fjernet med historikk. Hver Victor-felle viser sine egne kildeverdier. Det beregnes ingen felles Snap-/Victor-sum eller ny Victor-sum.
 
@@ -83,7 +83,7 @@ Hendelsesloggen har **Driftslogg** og **Testlogg**. Begge kan filtreres per fell
 
 Fra 0.4.0 har samme customkort to visninger. **Fullvisning** beholdes på Musefeller-fanen. **Tilsyn** er en liten liste uten felleillustrasjoner, måleverdier, kvitteringsknapper eller hendelseslogg. Den viser bare feller som trenger oppmerksomhet, med navn og konkrete årsaker. Ett trykk åpner fullvisningen. Den passer i én murverkskolonne.
 
-1. Oppdater hele integrasjonen til 2026.11.26 og start HA på nytt. Bruk ressursen med `?v=2026.11.26`, og last nettleseren/appen på nytt. Fjern eventuelle eldre ressursoppføringer som laster en annen kopi av samme kort.
+1. Oppdater hele integrasjonen til 2026.11.27 og start HA på nytt. Bruk ressursen med `?v=2026.11.27`, og last nettleseren/appen på nytt. Fjern eventuelle eldre ressursoppføringer som laster en annen kopi av samme kort.
 2. Åpne **Konfigurer → Kort og tilsyn → Tilsyn på startsiden**. Velg hvilke årsaker som skal vises. Standard: meldt Victor-fangst, ventende snap-kontroll, inspeksjonsfrist og utilgjengelig kilde/ukjent Victor-status. Gammel/ukjent sensorkontakt og lavt batteri kan slås på separat og bruker de eksisterende tersklene.
 3. Legg inn adressestien til din Musefeller-fane, for eksempel `/lovelace/musefeller` eller `/dashboard-hjem/musefeller`. Bruk stien fra din egen adresse; en ny fane opprettes ikke automatisk. Tomt felt er tillatt under oppsett og gir en forklaring i kortet.
 4. Legg til et nytt **Mousetrap Manager**-kort på startsiden. Velg **Tilsyn på startsiden** i korteditoren. Editorens standardvalg setter opp HAs betingede synlighet med den faktiske tilsynsentiteten. Andre synlighetsbetingelser beholdes.
@@ -250,7 +250,7 @@ Begge leverte kopier av kortfilen skal være identiske: `dist/mousetrap-manager-
 
 ## Opphav og lisens
 
-Opphav til de klassiske klappfellebildene og deler av testoppsettet: Rodent Trap Card 1.4, Katherine Dubé / `kedube`, commit [`28ff11fce917bb51a2d078b5c62bde40524b686a`](https://github.com/kedube/ha-rodent-traps/commit/28ff11fce917bb51a2d078b5c62bde40524b686a). Se [UPSTREAM.md](docs/UPSTREAM.md).
+Opphav til deler av nettlesertestenes oppsett: Rodent Trap Card 1.4, Katherine Dubé / `kedube`, commit [`28ff11fce917bb51a2d078b5c62bde40524b686a`](https://github.com/kedube/ha-rodent-traps/commit/28ff11fce917bb51a2d078b5c62bde40524b686a). Se [UPSTREAM.md](docs/UPSTREAM.md).
 
 GPL-3.0-or-later, med opprinnelige kildehenvisninger bevart. Se [LICENSE](LICENSE).
 

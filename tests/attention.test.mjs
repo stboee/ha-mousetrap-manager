@@ -69,8 +69,8 @@ export default async function run(browser){
   check('editor preserves unrelated visibility condition',config.visibility[0],userCondition);
   check('editor automatically sets native visibility for actual entity ID',config.visibility[1],{condition:'state',entity:'binary_sensor.renamed_attention',state_not:'off'});
   check('editor uses not off so unknown and unavailable stay visible',config.visibility[1].state_not,'off');
-  check('version is visible in editor',Editor.shadowRoot.textContent.includes('v2026.11.26'),true);
-  check('version can be queried for cache diagnosis',customElements.get('mousetrap-manager-card').getVersion(),'2026.11.26');
+  check('version is visible in editor',Editor.shadowRoot.textContent.includes('v2026.11.27'),true);
+  check('version can be queried for cache diagnosis',customElements.get('mousetrap-manager-card').getVersion(),'2026.11.27');
   select=Editor.shadowRoot.querySelector('select');select.value='full';select.dispatchEvent(new Event('change'));
   check('switching to full mode preserves other visibility rules',config.visibility,[userCondition]);
   Editor.hass={states:{}};
